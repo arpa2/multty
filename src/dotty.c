@@ -1,186 +1,271 @@
-/* mulTTY -> dotty.c -- Run a plain command and multiplex its streams.
+/* MulTTY -> dotty.c -- Do a command, multiplex its streams.
  *
- * This does a few things differently than normal:
- *  - Terminal stdin and stdout for dotty carry multiplexed traffic
- *  - We use SI and SO to increment/decrement streams
- *  - Output stream defaults to stdout, SI moves to stderr, SO goes back
- *  - Input  stream defaults to stdin,  SI moves to stdctl, SO goes back
- *  - New stream stdctl captures meta/control: stop, pause, signals, ...
- *  - Extra SI/SO positions should be prefixed with SOH and a name
- *  - Several control codes for the program will be escaped with DLE
+ * This runs a command that was written for plain stdin, stdout
+ * and stderr streams.  It merges stdout and stderr, but does
+ * this by switching between their streams.
  *
- * This helps you to keep the streams apart.  Normally there is also
- * an option to distinguish programs, but as we are running precisely
- * one program, that is not useful and we always speak on behalf of
- * the default program, being the one we start.
+ * A very coarse approximation of "dotty -- cmd" is "cmd 2>&1"
+ * which differs, because it does not produce output such that
+ * it shifts between the streams.
  *
- * Additional or differently named streams might be added with cmdline
- * options -i and -o and will be implemented with extra SI/SO indexes.
+ * TODO:
+ * This program is meant to grow into a fullblown MulTTY wrapper
+ * around a single command.  It should at some point include a
+ * stdctl channel for standard operations that pause, resume,
+ * start and stop the program and, possibly, debug it remotely.
  *
  * From: Rick van Rein <rick@openfortress.nl>
  */
 
 
 #include <stdlib.h>
-#include <stdio.h>
+#include <stdbool.h>
+#include <string.h>
 
 #include <unistd.h>
-#include <getopt.h>
+
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/select.h>
 
 
-struct fdmap {
-	int fdpair [2];
-	int is_in;
-	int sicount;
-};
 
-
-char *progname = "dotty";
-
-
-void usage (int exitval, char *opt_msg) {
-	if (msg != NULL) {
-		fprintf (stderr, "%s: %s\n", progname, opt_msg);
-	}
-	fprintf (stderr,
-		"Usage: %s [-i|-o|--input|--output streamname]... [--] /path/to/cmd args...\n",
-		dotty);
-	exit (exitval);
-}
-
-
-void error (char *msg) {
-	fprintf (stderr, "%s: %s\n", progname, msg);
-	exit (1);
-}
-
-
-struct option opts [] = {
-	{ "help",         no_argument, NULL, 'h' },
-	{ "output", required_argument, NULL, 'o' },
-	{  "input", required_argument, NULL, 'i' },
-	{ NULL,           no_argument, NULL,  0  }
-};
-
-
-/* Command processing for stdctl
+/* Simple redefinitions for stdout and stderr,
+ * meant to be there at any time, with simple
+ * wrapper macros to write text or data to them.
+ *
+ * TODO: Use <SI>/<SO> with possible <SOH>stderr
  */
-void process_stdctl (size_t asclen, char *ascbuf) {
-	TODO;
-}
+int newout = 1;
+int newerr = 2;
+
+#define bufout(s,l) write(newout, (s), (l))
+#define buferr(s,l) write(newerr, (s), (l))
+
+#define txtout(s) bufout((s), strlen ((s)))
+#define txterr(s) buferr((s), strlen ((s)))
+
+#define SO  0x0e
+#define SI  0x0f
+#define DLE 0x10
+#define DEL 0x7f
+#define SOH 0x01
+#define ETB 0x17
+#define EM  0x19
+#define DC1 0x11
+#define DC2 0x12
+#define DC3 0x13
+#define DC4 0x14
+
+#define SO_s  "\x0e"
+#define SI_s  "\x0f"
+#define DLE_s "\x10"
+#define DEL_s "\x7f"
+#define SOH_s "\x01"
+
+#define MAXBUF 4096
 
 
-/* Inbound processing:
- *  - Follow SI/SO as adaptations to the level
- *  - Remove DLE escape where it occurs
- *  - Redirect to the appropriate pipeline
+/* MulTTY escapes are needed for:
+ *
+ * NUL, SOH, STX, ETX, EOT, ENQ, ACK, DLE, DC1, DC2,
+ * DC3, DC4, NAK, SYN, ETB, CAN, EM, FS, GS, RS, US, DEL.
+ *
+ * With the exception of DEL, these are expressed in the
+ * bitmask below.  DEL has a funny code.
  */
-void process_in (size_t asclen, char *ascbuf, int *sifds) {
-	static int cur_silevel = 0;
-	if (asclen == 0) {
-		return;
-	}
-	TODO;
-}
+#define MULTTY_ESCAPED ((1<<0)|(1<<1)|(1<<2)|(1<<3)| \
+	(1<<4)|(1<<5)(1<<6)|(1<<16)|(1<<17)|(1<<18)| \
+	(1<<19)|(1<<20)|(1<<21)|(1<<22)|(1<<23)|(1<<24)| \
+	(1<<25)|(1<<28)|(1<<29)|(1<<30)|(1<<31))
 
 
-/* Outbound processing:
- *  - Read from the appropriate pipeline
- *  - Send SI/SO as necessary to adapt the level
- *  - Escape characters from the MulTTY "sensitive set"
+/* Return whether a character needs to be escaped.
+ * See the definition of MULTTY_ESCAPED before, and
+ * add DEL.
  */
-void process_out (size_t asclen, char *ascbuf, int aim_silevel) {
-	static int cur_silevel = 0;
-	if (asclen == 0) {
-		return;
+bool multty_escaped (char c) {
+	if (c > 0x20) {
+		return (c == 0x7f);
+	} else {
+		return ((MULTTY_ESCAPED & (1 << c)) != 0);
 	}
-	TODO;
 }
 
 
+/* Add escape codes to a MulTTY stream, meaning that all
+ * control codes used in MulTTY are prefixed with DLE and
+ * XORed with 0x40.  In the most extreme case, the buffer
+ * grows to double the size, which must be possible.  The
+ * new buffer length is returned.
+ */
+size_t multty_escape (char *buf, size_t buflen) {
+	int escctr = 0;
+	int i;
+	for (i=0; i<buflen; i++) {
+		if (multty_escaped (buf [i])) {
+			escctr++;
+		}
+	}
+	buflen += escctr;
+	i = buflen;
+	while (escctr > 0) {
+		if (multty_escaped (buf [i-escctr])) {
+			buf [--i] = buf [i-escctr] ^ 0x40;
+			buf [--i] = DLE;
+			escctr--;
+		} else {
+			buf [--i] = buf [i-escctr];
+		}
+	}
+	return buflen;
+}
+
+
+/* Multiplex child stdout and stderr onto newout.
+ * We only use stderr to report our own errors.
+ * Returns only non-zero on success.
+ */
+int multiplex (int subout, int suberr) {
+	int ok = 1;
+	int level = 1;
+	int maxfd = (subout > suberr) ? subout : suberr;
+	fd_set both;
+	int more = 1;
+	char buf [3 + MAXBUF + MAXBUF];
+	ssize_t buflen;
+	ssize_t gotlen;
+	while ((subout >= 0) || (suberr >= 0)) {
+		FD_ZERO (&both);
+		FD_SET (subout, &both);
+		FD_SET (suberr, &both);
+		if (select (maxfd+1, &both, NULL, NULL, NULL) < 0) {
+			txterr ("Failed to select stdout/stderr");
+			exit (1);
+		}
+		buflen = 0;
+		if (FD_ISSET (subout, &both)) {
+			if (level != 1) {
+				memcpy (buf, SI_s SO_s, buflen = 2);
+				level = 1;
+			}
+			gotlen = read (subout, buf+buflen, MAXBUF);
+			if (gotlen < 0) {
+				txterr ("Error reading from child stdout\n");
+				ok = 0;
+				subout = -1;
+			} else if (gotlen == 0) {
+				subout = -1;
+			} else {
+				gotlen = multty_escape (buf+buflen, gotlen);
+				if (bufout (buf, buflen + gotlen) != buflen + gotlen) {
+					txterr ("Unable to pass child stdout\n");
+					ok = 0;
+					subout = -1;
+				}
+			}
+		}
+		if (FD_ISSET (suberr, &both)) {
+#ifdef USE_RELATIVE_STDERR
+			if (level == 1) {
+				memcpy (buf, SO_s, buflen = 1);
+				level++;
+			}
+#endif
+			if (level != 2) {
+				memcpy (buf, SI_s SO_s SO_s, buflen = 3);
+				level = 2;
+			}
+			gotlen = read (suberr, buf+buflen, MAXBUF);
+			if (gotlen < 0) {
+				txterr ("Error reading from child stderr\n");
+				ok = 0;
+				suberr = -1;
+			} else if (gotlen == 0) {
+				suberr = -1;
+			} else {
+				gotlen = multty_escape (buf+buflen, gotlen);
+				if (bufout (buf, buflen + gotlen) != buflen + gotlen) {
+					txterr ("Unable to pass child stderr\n");
+					ok = 0;
+					suberr = -1;
+				}
+			}
+		}
+	}
+	return ok;
+}
+
+
+/* The main routine runs a child process with
+ * reorganised stdout and stderr handles.  It
+ * passes stdin without change.
+ */
 int main (int argc, char *argv []) {
+	int ok = 1;
 	//
-	// Parse cmdline arguments, print usage information if needed
-	int opt;
-	int argi = 0;
-	int iocount = 4;
-	struct fdmap *fdmap = NULL;
-	progname = argv [0];
-	//TODO// add_fdmap (&fdmap, 1, "stdin");
-	//TODO// add_fdmap (&fdmap, 1, "stdctl");
-	//TODO// add_fdmap (&fdmap, 0, "stdout");
-	//TODO// add_fdmap (&fdmap, 0, "stderr");
-	while (opt = getopt_long (argc, argv, "ho:i:", opts, &argi), o != -1) {
-		switch (opt) {
-		case 'i':
-			//TODO// infd++;
-			error ("Support for -i is not implemented yet");
-			break;
-		case 'o':
-			//TODO// otfd++;
-			error ("Support for -o is not implemented yet");
-			break;
-		case 'h':
-			usage (0, NULL);
-		default:
-			usage (1, "Unknown option");
-		}
+	// Parse commandline arguments
+	int argi = 2;
+	if ((argc < 2) || strcmp (argv [1], "--")) {
+		txterr ("Usage: dotty -- cmd [args...]\n");
+		exit (1);
 	}
 	//
-	// Start the program in the background program
-	int _stdin  [2];
-	int _stdout [2];
-	int _stderr [2];
-	int _stdctl [2];
-	if (pipe (_stdin ) ||
-	    pipe (_stdout) ||
-	    pipe (_stderr) ||
-	    pipe (_stdctl)) {
-		error ("Failed to clone stdio handles");
+	// Construct redirection pipes
+	int pipout [2];
+	int piperr [2];
+	int tmpout = dup (1);
+	int tmperr = dup (2);
+	if ((tmpout < 0) || (tmperr < 0)) {
+		txterr ("Failed to create replicas for stdout/stderr\n");
+		exit (1);
 	}
-	pid_t pid;
-	switch (pid = fork ()) {
-	case 0:
-		/* child */
-		if ((dup2 (_stdin  [0], 0) != 0) ||
-		    (dup2 (_stdout [1], 1) != 1) ||
-		    (dup2 (_stderr [1], 2) != 2)) {
-			error ("Failed to move stdio handles");
-		}
-		close (_stdin  [0]);
-		close (_stdin  [1]);
-		close (_stdout [0]);
-		close (_stdout [1]);
-		close (_stderr [0]);
-		close (_stderr [1]);
-		close (_stdctl [0]);
-		close (_stdctl [1]);
-		execvp (argv [argi], argv+argi);
-		error ("Failed to start the program in the child process");
+	newout = tmpout;
+	newerr = tmperr;
+	if (pipe (pipout) || (dup2 (pipout [1], 1) != 1)) {
+		txterr ("Failed to wrap stdout file\n");
+		exit (1);
+	}
+	if (pipe (piperr) || (dup2 (piperr [1], 2) != 2)) {
+		txterr ("Failed to wrap stderr file\n");
+		exit (1);
+	}
+	close (pipout [1]);
+	close (piperr [1]);
+	//
+	// Start a child process with the right piping
+	pid_t child = fork ();
+	switch (child) {
 	case -1:
-		/* error */
-		error ("Failed to fork a child process for runnning the program");
+		/* Failure */
+		txterr ("Failed to fork a child process\n");
+		exit (1);
+	case 0:
+		/* Child */
+		close (pipout [0]);
+		close (piperr [0]);
+		close (newout);
+		close (newerr);
+		execvp (argv [argi], argv+argi);
+		txterr ("Child process failed to run the command\n");
+		exit (1);
 	default:
-		/* parent */
-		break;
+		/* Parent */
+		close (0);
+		close (1);
+		close (2);
 	}
 	//
-	// Create the stdctl flow, which is handled locally
-	//TODO// Implement stdctl...
-	int service_stdctl = _stdctl [0];
-	//TODO// Use -i/-o to extend these arrays...
-	int fds_in  [] = { -1, _stdin  [1], _stdctl [1], -1 };
-	int fds_out [] = { -1, _stdout [0], _stderr [0], -1 };
-	int cur_in  = &fds_in  [1];
-	int cur_out = &fds_out [1];
+	// Multiplex the messages sent to stdout and stderr
+	//  - initial sending on stdout
+	//  - absolute switch to stdout with SI,SO
+	//  - absolute switch to stderr with SI,SO,SO
+	//  - relative switch to stderr with       SO
 	//
-	// Wait for traffic on any input stream, and process its ASCII
-	//
-	// Await child termination
+	ok = ok && multiplex (pipout [0], piperr [0]);
+	// Wait for the child to finish, then wrapup
 	int status;
-	waitpid (pid, &status, 0);
-	//
-	// Report success to the caller
-	return 0;
+	waitpid (child, &status, 0);
+	exit (ok ? 0 : 1);
 }
 

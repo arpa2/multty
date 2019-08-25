@@ -19,13 +19,13 @@ nature of service can be exploited across the ASCII link.
 
 We therefore specify a few naming conventions.  Plus, to
 assure ourselves of proper separation between streams, we
-require `DLE` escaping for all control codes that we use
+require `<DLE>` escaping for all control codes that we use
 for multiplexing.  Only "normal" controls characters need
 no escapes.  Software passing these streams must be
 vigilent to not pass attempts to violate this, as that
 is likely to lead to break-ins.
 
-Note that the use of `DLE` ultimately allows us to even
+Note that the use of `<DLE>` ultimately allows us to even
 pass binary content.  The only requirement would be the
 8-bit clean connection that is also assumed for UTF-8
 connections and generally offered throughout the Internet
@@ -63,9 +63,11 @@ extension with a number.
 
 Since services tend to be interactive, we do not define
 their further operation, or marking termination.  The
-`ETB` code can close a stream as always, and when an
-application ends it might instead signal `EM` with the
-same effect; both cases are one-ended shutdowns.
+`<EM>` code can close a stream as always, and when an
+application ends it might instead signal `<DC2>` to
+close an entire program with the same effect; both cases
+are one-ended shutdowns of which the receiver is merely
+informed.
 
 IANA maintains a formal
 [Service Name Registry](https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml)
@@ -87,8 +89,8 @@ appended directly, in the precise casing as provided by
 IANA.  So, we might have `iana.media.application/pdf` to name
 an offer of a PDF document.
 
-Note that streams can be ended with `ETB` or implicitly
-by a complete program termination with `EM`.  The first form
+Note that streams can be ended with `<ETB>` or implicitly
+by a complete program termination with `<EM>`.  The first form
 is preferred because it allows a program to continue to run
 and send another form of media later on, but the second should
 also be observed.

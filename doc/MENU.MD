@@ -74,25 +74,25 @@ At the risk of re-inventing common standards, we
 set forth to see what we can describe.
 
 At the outer level, we separate data structures
-with the file separator control code `FS` in a
+with the file separator control code `<FS>` in a
 loose manner:
 
-  * empty files are permitted, so `FS` may be
+  * empty files are permitted, so `<FS>` may be
     used before and after a file, not just in
     between them; it is actually pleasant to
     use it as a terminator to mark that a
     definition is finished
   * files apply to the current program, and do
     not impact other programs at all
-  * files start with `SOH` naming and repeating
+  * files start with `<SOH>` naming and repeating
     the same name redefines it dynamically
-  * to remove a file, just send `SOH`, its name
-    and an immediate `FS` to indicate no further
+  * to remove a file, just send `<SOH>`, its name
+    and an immediate `<FS>` to indicate no further
     data for the menu
-  * file names may use `US` between a
+  * file names may use `<US>` between a
     machine-readable and human-friendly form;
     in this case file overwriting is defined
-    by the part before the `US` so descriptions
+    by the part before the `<US>` so descriptions
     can change without modifying a machine
     identity
   * every file defines one data structure,
@@ -113,16 +113,16 @@ It is not difficult to encode strings in ASCII
 but we should care about control codes.  If ever
 there could be confusion to interpret a character
 in a string as an unintended control code, it
-should be escaped with `DLE`.  This is not needed
-for `LF` and `ESC`, but it is useful for the
-other control codes used here: `TAB`, `SOH`,
-`US`, `FS`, `GS`, `RS`, `HT` and of course the
+should be escaped with `<DLE>`.  This is not needed
+for `<LF>` and `<ESC>`, but it is useful for the
+other control codes used here: `<TAB>`, `<SOH>`,
+`<US>`, `<FS>`, `<GS>`, `<RS>`, `<HT>` and of course the
 other codes defined in the
 [MulTTY specification](ASCII.MD).
 
 Any strings mentioned in menu structures may
-have an unescaped `US` between a machine-readable
-and human-readable form.  Having no `US` means
+have an unescaped `<US>` between a machine-readable
+and human-readable form.  Having no `<US>` means
 that the data is only for human consumption, but
 should be treated as a literal string in commands.
 
@@ -131,16 +131,16 @@ should be treated as a literal string in commands.
 
 The representation of lists and records is the same;
 they simply sum up values.  Values that count as a
-reference to a type should use the `US` between the
+reference to a type should use the `<US>` between the
 reference and a description thereof.  If the type
 reference does not resolve, it is supposed to be a
 literal word to mention.
 
 The values in a list or record are separated by a
-record separator `RS` control code.
+record separator `<RS>` control code.
 
 When a last element in a list has too many options,
-it may be entered as `HT` or a form holding `HT`
+it may be entered as `<HT>` or a form holding `<HT>`
 and thereby suggest to ask for completion if that
 option is considered.  This may lead to any number
 of additional list elements, no added element
@@ -150,30 +150,30 @@ being one possible option.
 ### Lists of Alternatives in ASCII
 
 When a command can take on multiple forms, it uses
-the group separator `GS` control code between the
+the group separator `<GS>` control code between the
 options.  The part before the first separator is
-always used and the part after the various `GS`
+always used and the part after the various `<GS>`
 then provide alternative completions.  This may
 include an empty completion, so be careful not to
-treat `GS` as a terminator.  If this is done, a
-sequence `GS`,`FS` could be interpreted as an
+treat `<GS>` as a terminator.  If this is done, a
+sequence `<GS>`,`<FS>` could be interpreted as an
 empty final form.
 
 
 ## Data Completion
 
 To complete a field, its definition is sent in
-part to `stdctl` with a `HT` control at the end
+part to `stdctl` with a `<HT>` control at the end
 of the computer-friendly name.
 
 This control may well have been included in the
 original form, even at its very beginning, to
 indicate the possibility of asking for it.  The
-`HT` control would then precede the `US` control.
-The response would use the name with the `HT`
+`<HT>` control would then precede the `<US>` control.
+The response would use the name with the `<HT>`
 control included in the name to indicate that it
 is a completion table.  It may also add a few
-characters after `HT` that are certain to go
+characters after `<HT>` that are certain to go
 there, and the remaining list contains all
 further extensions excluding the already-found
 naming, so the list might include an empty string.
@@ -223,7 +223,7 @@ things to enter.
 
 Identities are one class of thing, and we might use
 that in several places in a normal ASCII flow, perhaps
-with an `SOH` naming prefix so it can be dragged and
+with an `<SOH>` naming prefix so it can be dragged and
 dropped without inaccuracies in spelling or bounding,
 or simply presenting options that have been passed
 during the interaction.

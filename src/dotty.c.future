@@ -1,0 +1,186 @@
+/* mulTTY -> dotty.c -- Run a plain command and multiplex its streams.
+ *
+ * This does a few things differently than normal:
+ *  - Terminal stdin and stdout for dotty carry multiplexed traffic
+ *  - We use SI and SO to increment/decrement streams
+ *  - Output stream defaults to stdout, SI moves to stderr, SO goes back
+ *  - Input  stream defaults to stdin,  SI moves to stdctl, SO goes back
+ *  - New stream stdctl captures meta/control: stop, pause, signals, ...
+ *  - Extra SI/SO positions should be prefixed with SOH and a name
+ *  - Several control codes for the program will be escaped with DLE
+ *
+ * This helps you to keep the streams apart.  Normally there is also
+ * an option to distinguish programs, but as we are running precisely
+ * one program, that is not useful and we always speak on behalf of
+ * the default program, being the one we start.
+ *
+ * Additional or differently named streams might be added with cmdline
+ * options -i and -o and will be implemented with extra SI/SO indexes.
+ *
+ * From: Rick van Rein <rick@openfortress.nl>
+ */
+
+
+#include <stdlib.h>
+#include <stdio.h>
+
+#include <unistd.h>
+#include <getopt.h>
+
+
+struct fdmap {
+	int fdpair [2];
+	int is_input;
+	int sicount;
+};
+
+
+char *progname = "dotty";
+
+
+void usage (int exitval, char *opt_msg) {
+	if (msg != NULL) {
+		fprintf (stderr, "%s: %s\n", progname, opt_msg);
+	}
+	fprintf (stderr,
+		"Usage: %s [-i|-o|--input|--output streamname]... [--] /path/to/cmd args...\n",
+		dotty);
+	exit (exitval);
+}
+
+
+void error (char *msg) {
+	fprintf (stderr, "%s: %s\n", progname, msg);
+	exit (1);
+}
+
+
+struct option opts [] = {
+	{ "help",         no_argument, NULL, 'h' },
+	{ "output", required_argument, NULL, 'o' },
+	{  "input", required_argument, NULL, 'i' },
+	{ NULL,           no_argument, NULL,  0  }
+};
+
+
+/* Command processing for stdctl
+ */
+void process_stdctl (size_t asclen, char *ascbuf) {
+	TODO;
+}
+
+
+/* Inbound processing:
+ *  - Follow SI/SO as adaptations to the level
+ *  - Remove DLE escape where it occurs
+ *  - Redirect to the appropriate pipeline
+ */
+void process_in (size_t asclen, char *ascbuf, int *sifds) {
+	static int cur_silevel = 0;
+	if (asclen == 0) {
+		return;
+	}
+	TODO;
+}
+
+
+/* Outbound processing:
+ *  - Read from the appropriate pipeline
+ *  - Send SI/SO as necessary to adapt the level
+ *  - Escape characters from the MulTTY "sensitive set"
+ */
+void process_out (size_t asclen, char *ascbuf, int aim_silevel) {
+	static int cur_silevel = 0;
+	if (asclen == 0) {
+		return;
+	}
+	TODO;
+}
+
+
+int main (int argc, char *argv []) {
+	//
+	// Parse cmdline arguments, print usage information if needed
+	int opt;
+	int argi = 0;
+	int iocount = 4;
+	struct fdmap *fdmap = NULL;
+	progname = argv [0];
+	//TODO// add_fdmap (&fdmap, 1, "stdin");
+	//TODO// add_fdmap (&fdmap, 1, "stdctl");
+	//TODO// add_fdmap (&fdmap, 0, "stdout");
+	//TODO// add_fdmap (&fdmap, 0, "stderr");
+	while (opt = getopt_long (argc, argv, "ho:i:", opts, &argi), o != -1) {
+		switch (opt) {
+		case 'i':
+			//TODO// infd++;
+			error ("Support for -i is not implemented yet");
+			break;
+		case 'o':
+			//TODO// otfd++;
+			error ("Support for -o is not implemented yet");
+			break;
+		case 'h':
+			usage (0, NULL);
+		default:
+			usage (1, "Unknown option");
+		}
+	}
+	//
+	// Start the program in the background program
+	int _stdin  [2];
+	int _stdout [2];
+	int _stderr [2];
+	int _stdctl [2];
+	if (pipe (_stdin ) ||
+	    pipe (_stdout) ||
+	    pipe (_stderr) ||
+	    pipe (_stdctl)) {
+		error ("Failed to clone stdio handles");
+	}
+	pid_t pid;
+	switch (pid = fork ()) {
+	case 0:
+		/* child */
+		if ((dup2 (_stdin  [0], 0) != 0) ||
+		    (dup2 (_stdout [1], 1) != 1) ||
+		    (dup2 (_stderr [1], 2) != 2)) {
+			error ("Failed to move stdio handles");
+		}
+		close (_stdin  [0]);
+		close (_stdin  [1]);
+		close (_stdout [0]);
+		close (_stdout [1]);
+		close (_stderr [0]);
+		close (_stderr [1]);
+		close (_stdctl [0]);
+		close (_stdctl [1]);
+		execvp (argv [argi], argv+argi);
+		error ("Failed to start the program in the child process");
+	case -1:
+		/* error */
+		error ("Failed to fork a child process for runnning the program");
+	default:
+		/* parent */
+		break;
+	}
+	//
+	// Create the stdctl flow, which is handled locally
+	//TODO// Implement stdctl...
+	int service_stdctl = _stdctl [0];
+	//TODO// Use -i/-o to extend these arrays...
+	int fds_in  [] = { -1, _stdin  [1], _stdctl [1], -1 };
+	int fds_out [] = { -1, _stdout [0], _stderr [0], -1 };
+	int cur_in  = &fds_in  [1];
+	int cur_out = &fds_out [1];
+	//
+	// Wait for traffic on any input stream, and process its ASCII
+	//
+	// Await child termination
+	int status;
+	waitpid (pid, &status, 0);
+	//
+	// Report success to the caller
+	return 0;
+}
+

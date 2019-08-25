@@ -57,3 +57,24 @@ visibility and add it back later.  And you need
 to type file names manually, with their full
 paths, with no command line completion.  It
 really is much easier to use ZMODEM.
+
+Usinga the MulTTY wrapper `dotty`, you might say
+
+```
+here$  dotty -i zmodem -o zmodem -- sz FILE
+there$ dotty -i zmodem -o zmodem -- rz
+```
+
+but you guessed it, aliases or script wrappers
+can simplify that to
+
+```
+here$  setty FILE
+there$ retty
+```
+
+It may even be useful to convert these to real
+programs, and permit a bit more user interaction
+than possible with `rz` and `sz` that have to
+claim the entire TTY in both directions under
+the assumption of them being single streams.

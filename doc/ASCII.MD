@@ -1,4 +1,4 @@
-# ASCII to the Rescue: Multiplexing Terminals
+# MulTTY: ASCII for Multiplexing Terminals
 
 > *We have never stopped using terminals, and the rise
 > of container technology only adds more.  Top that off
@@ -81,12 +81,42 @@ terminal to tell the remote to attach a debugger to a
 program and connect a local debugger to it over a new
 set of streams?
 
+
+## Prefixing Names
+
+We regularly use names to specify a managed entity.
+This naming can be relative, and assumed known because
+relative movements bring attention back to a
+previously named entity, or a name may be expicitly
+prefixed and its scope determined by the control code
+that follows it.
+
+Names start with `<SOH>` and are followed with a
+sequence of characters in the range 0x20 through 0x7e,
+with the one exception that a control `<US>` may
+appear between a machine-friendly name and a
+human-friendly name.
+
+The ASCII representation can be of any size, and
+especially the human form can be a bit longer, but
+any difference between instances must be made in the
+first 32 characters or, if the `<US>` marker occurs
+in the first 33 characters, in the text up to and
+including the `<US>`.  Note that the `<US>` can
+add an extra character.
+
+As a result of selecting a beginning as a unique
+name, it is possible for the remainder of the name
+to vary.  This can be used to update the human-friendly
+description for any given name.
+
+
 ## Control Codes
 
 We interpret a few ASCII control codes that are
 otherwise ignored.  We do not touch the ones that are
-in common use, such as `LF`, `BS`, `BEL` and `ESC`.
-This is not a terminal standard, but a set of control
+in common use, such as `<LF>`, `<BS>`, `<BEL>` and `<ESC>`;
+MulTTY is not a terminal standard, but a set of control
 codes that can be used orthogonally to multiplex and
 redirect traffic between terminals.  It may be made
 part of a terminal, but it could also be arranged
@@ -96,73 +126,149 @@ These are the control codes that we believe are useful
 for the kind of middleware control and multiplexing
 that we believe the MulTTY project can add:
 
-  * `SOH` starts a name for an entity that will be
+  * `<SOH>` starts a name for an entity that will be
     mentioned afterwards.  The name consists of
     characters in the range 0x20 to 0x7e and its first
-    64 characters suffice for unique distinction.
-    If names are to be nested, multiple `SOH` may be
-    sent in sequence, the "outer" name being the first
-    sent.  The character following `SOH` determines
-    what is being named and the name is considered
-    unique for the containing traffic flow at any
-    time (which is why multiplexing can add nesting).
+    64 characters suffice for unique distinction, and
+    more may be cut off anywhere in the communication.
+    If names are to be nested, multiple `<SOH>` prefixed
+    names may be sent in sequence, the "outer" name
+    being the first sent.  The character following the
+    last `<SOH>` name determines what is being named and
+    the name is considered unique for the containing
+    traffic flow at the time of its presentation
+    (which is why multiplexing can add nesting).
     Names are intended to be humanly readable, though
-    a `US` can be used between an unreadble unique
-    textual value and a readable human string.
+    a `<US>` can be used between an machine-friendly
+    textual value and a human-readable string.
 
-  * `DC1`, `DC2`, `DC3`, `DC4` switches to one in four
-    programs, possibly prefixed with an `SOH` name.
-    When no name is prefixed, the previous name for
-    the same control code will be assumed, for which
-    the flow then continues.  You can switch quickly
-    between programs by inserting these one-byte codes,
-    but will need names if your work set involves
-    more program names.  Note that these control codes
-    are local to a traffic flow, so SCTP can be used
-    to have many more than these four programs.
-    (Note that this is used on output and input; the
-    codes overlap `XON` and `XOFF` which is replaced
-    by actions on `stdctl`, though terminals may want
-    to translate `^Q` and `^S` to `stdctl` commands.)
+  * `<DC1>` through `<DC4>` control program changes,
+    but only in the direction it is sent.  Unknown
+    names may be created on the fly or ignored,
+    depending on sender/receiver semantics.  Programs
+    may be removed, though the real actual effect
+    again depends on sender/receiver semantics.
+    Preceding `<SOH>` naming can be used to signal
+    the name concerned, to replace relative program
+    references with absolute ones.
 
-  * `EM` marks the end of the current program run, and
-    any text until the following `DCx` program switch
-    is considered a report of its last state, such as
-    its output streams.  When this report starts with
-    numeric information and `US`, it marks an exit
-    code, where 0 is good and anything else is bad.
+    These codes are not usually sent by a program,
+    which is mostly concerned with streams.  These
+    codes are used for multiplexing programs.  Since
+    multiplexers are also programs, multiplexing can
+    be nested and the program names will inherit the
+    nesting structure.  For every set of programs at
+    every nesting level or branch being managed, the
+    state to maintain includes a current program and
+    the previous program.  This is needed to implement
+    these device controls.  In addition, there is a
+    globally active program set.
 
-  * `SI` and `SO` switch to another stream for the
-    current program.  This is normally used to
-    switch between two states (`SI` for a red ribbon,
-    `SO` for black printing) and this is also how
-    Xterm and Linux Console switch between a G0 and
-    G1 character set.  We define many more.  A single
-    `SI` switches to the first of the `SI` sequence,
-    so red ribbon, or G1 character set.  More `SI`
-    then continue to additional ones, like a counter,
-    to be reset to the basic stream for black print
-    or G0 character set upon first encounter of an
-    `SO` control.  Additional `SO` can develop in
-    another direction (negative counter values?) and
-    we use that to access other streams for a program.
-    See the shifting table below.
+    `<DC1>` moves from the current program set to
+    its direct parent set.  Normally, it moves to the
+    current program in that set, but an `<SOH>` name
+    might follow-up with a search in the parent's
+    program set.
 
-  * `ETB` marks the end of the current stream for the
-    current program.  This counters the introduction
-    of new streams with additional `SI` or `SO` that
-    reach beyond what was known.  Several of these are
-    implied by `EM`, so that no `ETB` is needed at
-    termination of a program.  When this is issued,
-    the current stream is set to the base stream for
-    this side (`SI` or `SO`) of the program.
+    `<DC2>` removes the current program, after possibly
+    setting an `<SOH>` named program from the current
+    program set current.  It also ends any programs for
+    which this is a parent, directly or indirectly, and
+    it implicitly ends the streams for each of these
+    ended programs.
 
-  * `STX` and `ETX` can be used to mark framing of
-    information, inasfar as this is meaningful to the
-    interpretation of a named stream.  Using this,
-    `STX` starts framing information and both `STX`
-    and `ETX` end any previous framing.  Text before
-    a first `STX` and after a `ETX` is not framed
+    After this, there is no current program.  This
+    recognisable situation should be used to send an
+    `<EM>` code for the entire program, possibly
+    including a reason for ending the program.
+
+    `<DC3>` moves from the current program to the
+    (child) program set whose parent it is.  When
+    an `<SOH>` name is prefixed, a search for that
+    name will be performed next.
+
+    `<DC4>` swaps the current program with another
+    program within the current program set.  If an
+    `<SOH>` name is given, the other program is
+    defined by its name, and otherwise the previous
+    program is used.
+
+    Names that are being referenced but that are not
+    known yet are taken to be introductions of new
+    names.  This is even true for `<DC2>`, but it is
+    likely to implement compatible behaviour that
+    skips a few steps.  After all commands a new
+    program is set as the current, though it is set
+    to undefined after `<DC2>`.  After all commands
+    the previous current program has moved and, for
+    this program set, made the new nameless target
+    for a next `<DC4>` control.
+
+  * `<EM>` marks the end of a stream of the current
+    program run.  After `<DC2>` there is no current
+    program but then the special use is to for the
+    terminated program as a whole.  When ending a
+    stream, the current program returns to the
+    default stream without affecting `<SO>` or `<SI>`
+    status (described below).
+
+    When no `<SOH>` name precedes `<EM>`, it is taken
+    to mean that nothing interesting was to be said
+    about ending the stream or program.  Usually,
+    that means all went as expected.  If an `<SOH>`
+    name precedes `<EM>` however, it is considered
+    to report a reason for ending the stream or
+    program.  When a `<US>` is part of the reason,
+    it separates a machine-readable form from a
+    human-friendly text.  The machine-readable form
+    should be portable, and so the POSIX error codes
+    cannot be used.  The `com_err` library provides
+    numeric values that are portable, and can be
+    used in this position as decimally written
+    signed 32-bit integers, of which 0 represents
+    OK.  The names of POSIX errors can also be used,
+    because these are portable.
+
+    Multiplexing can be nested, and because of that
+    its interaction with `<EM>` and in general longer
+    codes can be confusing; in general, during any
+    byte sequence there may be a need to switch to
+    another program, but for the locally generated
+    `<DC2><SOH>xxx<EM>` that would only be caused by
+    parent environments.  When these return in the
+    current environment, the relaying of the `<SOH>`
+    should continue as if nothing happened.  Then,
+    when `<EM>` ends it, the retained information
+    about current programs and their streams is
+    still available, and can be used to detect how
+    to interpret the information.
+    **TODO:** Can parents jump in for a named child?
+
+  * `<SI>` and `<SO>` switch to another representation
+    under the common ASCII standards, with the
+    default as if `<SO>` had been given.  Occurrences
+    are shifting to a red ink ribbon instead of
+    black, or shifting to another character set in
+    Xterm and Linux Console.  We make an orthogonal
+    extension by prefixing an `<SOH>` name for a
+    stream, or assuming the default streams without
+    a name.  Stream names may be created freshly.
+    For output, the default is `stdout` and there
+    is an additional `stderr` that can be selected
+    with an `<SOH>stderr` prefix to either `<SO>` or
+    `<SI>` (the best choice is whatever the current
+    shift status is).  For input, the default is
+    `stdin` and there can also be a `stdctl` with
+    `<SOH>stdctl` prefixed to either `<SI>` or
+    `<SO>` control.
+
+  * `<STX>` and `<ETX>` and possibly `<SOH>`, `<EOT>` and
+    `<ETB>` are intended to frame information, and can be
+    used freely when this is meaningful for interpretation
+    of a (typed through naming) stream.  Using this,
+    `<STX>` starts framing information and both `<STX>`
+    and `<ETX>` end any previous framing.  Text before
+    a first `<STX>` and after a `<ETX>` is not framed
     and would be treated differently by the stream.
     Being able to frame data allows the markation
     of a piece of text as something to be parsed as
@@ -171,7 +277,7 @@ that we believe the MulTTY project can add:
     is per stream and a frame may be split due to
     a multiplexer's switch to another frame.
 
-  * `FS`, `GS`, `RS`, `US` are separators for fields,
+  * `<FS>`, `<GS>`, `<RS>`, `<US>` are separators for fields,
     groups, records and units.  They may be used to
     add some structure to a stream's flow, especially
     when it serves a purpose.  Ideas that come to mind
@@ -179,60 +285,59 @@ that we believe the MulTTY project can add:
     with some structure, though not as tight as JSON
     or XML.
 
-  * `SYN`, `ENQ`, `CAN`, `ACK` and `NAK` seem useful
-    to add some structure to interactions, rather than
-    structuring textual information.  The `ENQ` is
-    used by Xterminals, for example, but different
-    streams can use these signals in other ways.  An
-    idea that comes to mind is better automation for
-    authentication flows.  We will indeed define how
-    SASL can use such things.
+  * `<SYN>`, `<ENQ>`, `<CAN>`, `<ACK>` and `<NAK>` can
+    add some structure to protocols, which differs
+    from structuring text or data.  Only the `<ENQ>` is
+    used in Xterm statusses via stdio, but other
+    streams can use these signals in their own way.
+    An idea that comes to mind is better automation
+    for authentication flows.  We will indeed define
+    how SASL can use such things.
 
-  * `DLE` is used for binary content that wishes to
+  * `<DLE>` is used for binary content that wishes to
     include codes that would otherwise be interpreted
     as control codes.  The general pattern is that a
     code in the range 0x00 to 0x1f plus 0x7f are
-    XORed with 0x40 and then sent with `DLE` prefixed.
-    This means that `DLE`,`G` is sent to avoid 0x08
-    being interpreted as `BEL`.
+    XORed with 0x40 and then sent with `<DLE>` prefixed.
+    This means that `<DLE>G` is sent to avoid 0x08
+    being interpreted as `<BEL>`.  Applications that
+    carry binary content, such as SASL, also need to
+    escape `<NUL>` as that might otherwise be removed
+    at a whim.
 
 
-## Shift Table
+## Reference
 
-The shift table that is assumed by default is determined
-by how many `SI` or how many `SO` were seen since the
-last occurrence of the other kind.  A sequence
-`...SO...SI...SI...` would read as `SI`,`SI` below.  And
-`...SI...SI...SO...` reads as `SO`.  Initially, the state
-is `SO`.
+This has loose correspondance with ITU Recommendation T.50,
+*International Reference Alphabet*, as revised in 1992,
+formerly known as *International Alphabet No 5* or IA5.
 
-This is certainly not the simplest way of shifting in and
-out.  It is perhaps the third design, and it was made for
-optimal compatibility with the black/red ribbons or the
-G0/G1 character sets of Xterm and the Linux Console.
+We interpret the general and somewhat vague descriptions
+in this specification somewhat broadly, notably when
 
-In the output flow:
+  * We use `<SOH>` liberally as a naming prefix, not just
+    to preface text.  This is not a current practice so
+    there would be no clashes, but it is a bit creative.
+    Programs that do not recognise `<SOH>` may ignore it
+    and end up printing the content that follows (which
+    is not proper handling of this ASCII code).
 
-  * `SO` is the stream `stdout` using the G0 character set.
-  * `SI` is the stream `stdout+` using the G1 character set.
-  * `SI`,`SI` and so on could be used for extra character sets.
-  * `SO`,`SO` is the stream `stderr`.
-  * `SO`,`SO`,`SO` and so on are additional output flows, usually
-    named during first reference with an `SOH` prefix to aid in
-    the interpretation of their content.  Some of the flows may
-    be created for the `stdctl` stream, for example a remote
-    debugging connection.
+  * We use `<DCx>` codes in a particular interpretation,
+    because the most known device controls XON and XOFF
+    are not a fixed standard and because we believe more
+    variation can be obtained through a `stdctl` stream.
+    Still, the hint to use `<DC1>` and `<DC2>` in a more
+    negative fashion and `<DC3>` and `<DC4>` more in a
+    positive atmosphere has been followed.  The use of
+    `<DC1>` and `<DC3>` cause a switch to parent and
+    back to its current child, which bears a faint
+    resemblence with their interpretation as XON and
+    XOFF.
 
-In the input flow:
-
-  * `SO` is the stream `stdin`.
-  * `SI` and `SI`,`SI` and so on are not defined here, but
-    reserved for the terminal rendering program.
-  * `SO`,`SO` is the streadm `stdctl`.
-  * `SO`,`SO` and so on are additional input flows, usually
-    named during first reference with an `SOH` prefix to aid in
-    the interpretation of their content.  Some of the flows may
-    be created for the `stdctl` stream, for example a remote
-    debugging connection.
+  * We prefix `<SI>` and `<SO>` with a name to vary the
+    multiplexing operation, but other than that we retain
+    its meaning and should see no changes, even without
+    removal of multiplexing, other than the possible
+    printing of unrecognised `<SOH>` name prefixes.
 
 
