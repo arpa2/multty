@@ -1,6 +1,6 @@
 # Programs in MulTTY
 
-> *The MulTTY approach can offer a number of
+> *The mulTTY approach can offer a number of
 > useful utilities, all building blocks that
 > help to uplift the usefulness of TTYs.*
 
@@ -13,6 +13,12 @@ The names used below may or may not end up
 being actual programs.  The ideas that they
 represent are what counts, but those may be
 integrated with existing programs.
+
+It is quite likely that several of these
+programs end up in library functions for
+which the programs then become trivial
+wrappers.  That may simplify the inclusion
+of mulTTY functions into other programs.
 
 
 ## Running Commands: dotty
@@ -91,11 +97,21 @@ a QR code and grab your mobile.  Or send a
 code to a device and receive a response.
 
 
+## Handling SASL: saltty
+
+It can be useful to mix SASL negotiation
+into a stream on either end.  The `saltty`
+program can be used with `-c` and/or `-s`
+flags to operate on the client and/or
+server side of a SASL exchange; both might
+be meaningful in peer-to-peer situations.
+
+
 ## Container wrapper: clotty
 
 Containers under the OCI tend to export a
 TTY but that's pretty much all that is being
-said about it.  Use MulTTY to get the most out
+said about it.  Use mulTTY to get the most out
 of it, especially when a client is able to
 split apart the programs and their streams,
 and perhaps list each in a separate window
@@ -112,9 +128,9 @@ The customary `init` program is long gone,
 and we seek variation these days.  A simple
 replacement such as `runsv` may be used to
 run multiple programs in the foreground, and
-keep their output around on a MulTTY.
+keep their output around on a mulTTY.
 
-Typical properties of an `intty` program
+Typical properties of an `initty` program
 would be that their `stdctl` stream has
 support for `enable` and `disable` commands
 and, most interestingly, the power to add a
@@ -127,7 +143,7 @@ that run a small set of services.
 ## Shell witout Editing: shotty
 
 The `shotty` command runs multiple commands
-and produces MulTTY output that multiplexes
+and produces mulTTY output that multiplexes
 individual programs.
 
 This program will probably experiment with
@@ -164,14 +180,14 @@ position.
 We may grow `pretty` into an interactive terminal
 that runs together with a rending program of the
 kind we currently indicate as a terminal emulator.
-Indeed, MulTTY adds to those programs, namely the
+Indeed, mulTTY adds to those programs, namely the
 facility of multiplexing (and being smart about it).
 
 It may make sense to run `pretty` as a program
 within a MOSH shell.  This shell renders literal
 screens but would not pass multiplexing.  Being
 optimised for graphical output, it is best to
-have a MulTTY handler just before that point of
+have a mulTTY handler just before that point of
 information loss.
 
 

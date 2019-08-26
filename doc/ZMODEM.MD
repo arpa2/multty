@@ -25,7 +25,7 @@ are suppressed.  ZMODEM took care not to confuse the
 programs it knew about, but you can only follow that
 line of action with a handful of protocols.
 
-The MulTTY proposal made here is different.  First,
+The mulTTY proposal made here is different.  First,
 it sits in a channel and escapes anything passing
 through it that might be confusing.  This means it
 never gets confused by other protocol content.
@@ -58,7 +58,7 @@ to type file names manually, with their full
 paths, with no command line completion.  It
 really is much easier to use ZMODEM.
 
-Usinga the MulTTY wrapper `dotty`, you might say
+Using the mulTTY wrapper `dotty`, you might say
 
 ```
 here$  dotty -i zmodem -o zmodem -- sz FILE

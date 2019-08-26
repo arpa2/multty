@@ -43,8 +43,11 @@ know for sure, so we shall not take that view.
 Note that SASL is not designed to be passed in the
 clear, for certain reasons:
 
+  * Backward-compatible SASL mechanisms can be weak,
+    supporting even the replay of captured traffic
+
   * SASL mechanisms may leak identity information and
-    disadvantage privacy and perhaps even security
+    so disadvantage privacy and perhaps even security
 
   * There might be man-in-the-middle attacks that modify
     authentication attempts while in transit
@@ -106,14 +109,14 @@ the mechanism list with space to separate the elements,
 and so shall we.  We end the list with `<ETB>`.
 
 The mechanism list needs to be started, however.  We
-do this by prefixing it with `<CAN><ENQ>` which can
+do this by prefixing it with `<ENQ><CAN>` which can
 be interpreted as a reset of security status and a
 fresh start of a SASL session by an equiry into the
 client's ability to authenticate.
 
 The server may also send `<CAN>` to retract previous
 authentication.  To completely ban a client, it may
-send the form `<CAN><ENQ><ETB>`, which explicitly
+send the form `<ENQ><CAN><ETB>`, which explicitly
 lists no SASL mechanism names for renewed SASL
 authentication.
 
@@ -132,7 +135,7 @@ name if the server used it.
 
 The server may cancel any SASL exchange in progress,
 either before or during negotiation or afterwards,
-by sending `<CAN><ENQ><ETB>`, prefixed with an `<SOH>`
+by sending `<ENQ><CAN><ETB>`, prefixed with an `<SOH>`
 name if it used that before.
 
 When a session does not exist, a `<CAN>` has probably
@@ -290,4 +293,95 @@ These indicate *authentication* success or failure,
 not *authorisation* success or failure.  Syntactically,
 the former only occurs between `<ENQ>` and `<ETB>` and
 the latter only occurs outside it.
+
+
+## Example: SASL ANONYMOUS with Authorisation Updates
+
+The server decides it wants to ask the client to
+authentication, but it does offer ANONYMOUS for a
+client who is intent on using only public resources.
+
+These examples include an `<SO>` shift to the `sasl`
+stream.  When done, it sends another `<SO>` to
+return to `stdin` or `stdout`.  Either or both of
+these shifts may be unnecessary depending on context.
+
+The server initiates the SASL procedure.
+
+```
+S->C: <SOH>sasl<SO><ENQ><CAN>SXOVER ANONYMOUS<ETB><SO>
+```
+
+A client that is unaware of SASL or mulTTY streams
+is likely to ignore the special characters and it
+may (incorrectly) dump the ASCII content:
+
+```
+saslSXOVER ANONYMOUS
+```
+
+This would be harmless, at best it could raise some
+questions with users and make them discover the
+extra option being offered.  Let's assume we have a
+potent client, which chooses ANONYMOUS to send a
+token that holds a tracing name which happens to be
+readable as plaintext:
+
+```
+C->S: <SOH>sasl<SO>ANONYMOUS bakker@orvelte.nep<US><ETB><SO>
+```
+
+The server may explicitly accept, though this is not
+always done with the ANONYMOUS method.  It does not
+send a SASL Token at all, which is why there is no
+`<US>` to follow an (empty) SASL Token:
+
+```
+S->C: <SOH>sasl<SO><ENQ><ACK><ETB><SO>
+```
+
+At any time later, the SASL server may discover that
+this user is granted access to a particular service,
+and it could report that to the SASL client:
+
+```
+S->C: <SOH>sasl<SO><SOH>webtty<ACK><ETB><SO>
+```
+
+Perhaps another resource gets withdrawn due to an
+expiration or ACL change:
+
+```
+S->C: <SOH>sasl<SO><SOH>ldap<NAK><ETB><SO>
+```
+
+## Example: SASL SCRAM
+
+We follow the example in
+[Section 5 of RFC 5802](https://tools.ietf.org/html/rfc5802#section-5)
+with the remark that the base64 coding used here is part of this
+specific SASL mechanism, not of its ASCII embedding, but it does
+simplify token handling and representation to not have to use
+`<DLE>` escaping.
+
+```
+S->C: <SOH>sasl<SO><ENQ><CAN>SCRAM SXOVER ANONYMOUS<ETB><SO>
+C->S: <SOH>sasl<SO>SCRAM n,,n=user,r=fyko+d2lbbFgONRv9qkxdawL<US><ETB><SO>
+S->C: <SOH>sasl<SO><ENQ>r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j,
+      s=QSXCR+Q6sek8bf92, i=4096<US><ETB><SO>
+C->S: <SOH>sasl<SO>c=biws,r=fyko+d2lbbFgONRv9qkxdawL3rfcNHYJY1ZVvWVs7j,
+      p=v0X8v3Bz2T0CJGbJQyF0X+HI4Ts=<US><ETB><SO>
+S->C: <SOH>sasl<SO><ENQ>v=rmF9pqV8S7suAoZWja4dJRkFsKQ=<US><ACK><ETB><SO>
+```
+
+To understand the ASCII inserts:
+
+  * `<SOH>sasl<SO>` in the beginning switches to the `sasl` stream.
+  * `<SO>` at the end switches back to the default stream, `stdin` or `stdout`.
+  * `<ETB>` is used to mark the end of SASL messages independently of `<SO>` to switch streams.
+  * `<ENQ>` is always used as a starter by the server and never by the client.
+  * `<ENQ><CAN>` is the start of a method list, always sent by the server.
+  * `SCRAM ` starts the initial response, before the SASL Token `n,,n=user,xxx` is sent.
+  * `<US>` terminates a SASL Token and indicates that a SASL Token was sent.
+  * `<ENQ>xxx<ACK>xxx<ETB>` indicates successful authentication, but says nothing about authorisation.
 

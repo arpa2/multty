@@ -1,4 +1,4 @@
-/* MulTTY -> dotty.c -- Do a command, multiplex its streams.
+/* mulTTY -> dotty.c -- Do a command, multiplex its streams.
  *
  * This runs a command that was written for plain stdin, stdout
  * and stderr streams.  It merges stdout and stderr, but does
@@ -9,7 +9,7 @@
  * it shifts between the streams.
  *
  * TODO:
- * This program is meant to grow into a fullblown MulTTY wrapper
+ * This program is meant to grow into a fullblown mulTTY wrapper
  * around a single command.  It should at some point include a
  * stdctl channel for standard operations that pause, resume,
  * start and stop the program and, possibly, debug it remotely.
@@ -66,13 +66,20 @@ int newerr = 2;
 #define MAXBUF 4096
 
 
-/* MulTTY escapes are needed for:
+/* mulTTY escapes are needed for:
  *
  * NUL, SOH, STX, ETX, EOT, ENQ, ACK, DLE, DC1, DC2,
  * DC3, DC4, NAK, SYN, ETB, CAN, EM, FS, GS, RS, US, DEL.
  *
  * With the exception of DEL, these are expressed in the
  * bitmask below.  DEL has a funny code.
+ *
+ * If you insist on using Telnet as a protocol, you may
+ * also have to escape 0xff, which is a prefix for a
+ * remote command.  You can either use DLE escaping or
+ * send a double 0xff in this case, where the former
+ * would work along with other mulTTY escapes and the
+ * latter would assume Telnet to be the carrier.
  */
 #define MULTTY_ESCAPED ((1<<0)|(1<<1)|(1<<2)|(1<<3)| \
 	(1<<4)|(1<<5)(1<<6)|(1<<16)|(1<<17)|(1<<18)| \
@@ -93,8 +100,8 @@ bool multty_escaped (char c) {
 }
 
 
-/* Add escape codes to a MulTTY stream, meaning that all
- * control codes used in MulTTY are prefixed with DLE and
+/* Add escape codes to a mulTTY stream, meaning that all
+ * control codes used in mulTTY are prefixed with DLE and
  * XORed with 0x40.  In the most extreme case, the buffer
  * grows to double the size, which must be possible.  The
  * new buffer length is returned.

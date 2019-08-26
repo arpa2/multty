@@ -1,12 +1,12 @@
 # Programming for MulTTY
 
-> *It is really simple to write output that is MulTTY
+> *It is really simple to write output that is mulTTY
 > compatible.  It will give you much more control
 > over the output that you write and leave rendering
 > more to the client interface.  Likewise, integrating
 > input streams is simple in event-driven programs.*
 
-To use MulTTY, you only write to `stdout` and you only
+To use mulTTY, you only write to `stdout` and you only
 read from `stdin`.  Any traffic for `stderr` is sent
 with a prefix code.  Depending on your style, you may
 choose to switch back to `stdout` afterwards, or set
@@ -48,7 +48,12 @@ channels in one statement.
 **Threading.**
 In multi-threaded programs, you may have to be more
 careful; while printing one string, `stdout` should
-not be overtaken by another thread.
+not be overtaken by another thread.  You might resolve
+this with a lock to protect the combined output stream
+or you could use `sendmsg()` which can also be used
+on TCP, but does work more naturally over SCTP.  With
+SCTP, you can also use multiple SCTP streams, such as
+one for each ASCII stream.
 
 **Shift.**
 Everytime you specify a name, you also specify
@@ -110,24 +115,31 @@ is not like base64, which encodes binary content to 7-bit channels.
 Escaping is done with the `<DLE>` character `\x10` with the
 escaped code being XOR-ed with 0x40.  This must be done with any
 code that might otherwise be interpreted by the ASCII layer or,
-more to the point, the MulTTY handling code for multiplexing.
+more to the point, the mulTTY handling code for multiplexing.
 
 You may encode all codes below 0x20 and additionally 0x7f, to
 get a range of 0x3f through 0x5f after escaping.  You should
 include 0x00 if you know it may occur in your binary data.  And
-at the very least, include the characters used in MulTTY and
+at the very least, include the characters used in mulTTY and
 described in [the ASCII document](ASCII.MD).
 
 An escape routine can look like this,
 
 ```
-/* MulTTY escapes are needed for:
+/* mulTTY escapes are needed for:
  *
  * NUL, SOH, STX, ETX, EOT, ENQ, ACK, DLE, DC1, DC2,
  * DC3, DC4, NAK, SYN, ETB, CAN, EM, FS, GS, RS, US, DEL.
  *
  * With the exception of DEL, these are expressed in the
  * bitmask below.  DEL has a funny code.
+ *
+ * If you insist on using Telnet as a protocol, you may
+ * also have to escape 0xff, which is a prefix for a
+ * remote command.  You can either use DLE escaping or
+ * send a double 0xff in this case, where the former
+ * would work along with other mulTTY escapes and the
+ * latter would assume Telnet to be the carrier.
  */
 #define MULTTY_ESCAPED ((1<<0)|(1<<1)|(1<<2)|(1<<3)| \
 	(1<<4)|(1<<5)(1<<6)|(1<<16)|(1<<17)|(1<<18)| \
@@ -148,8 +160,8 @@ bool multty_escaped (char c) {
 }
 
 
-/* Add escape codes to a MulTTY stream, meaning that all
- * control codes used in MulTTY are prefixed with DLE and
+/* Add escape codes to a mulTTY stream, meaning that all
+ * control codes used in mulTTY are prefixed with DLE and
  * XORed with 0x40.  In the most extreme case, the buffer
  * grows to double the size, which must be possible.  The
  * new buffer length is returned.
@@ -179,7 +191,7 @@ size_t multty_escape (char *buf, size_t buflen) {
 
 # Reading Input as Streams
 
-Inputting data from MulTTY is more complex, but only as the result of
+Inputting data from mulTTY is more complex, but only as the result of
 using the extra facilities.  If only `stdin` is used there should be no
 difference with normal patterns, because that is the initial stream and
 when it is not switched all of it will be the `stdin` stream.
@@ -187,7 +199,7 @@ when it is not switched all of it will be the `stdin` stream.
 Data read from `stdin` may not all be meant for the default input stream
 that we also named `stdin` because it replaces that original idea.  In
 fact, using `dotty`, the stream is still used like that, but if your
-program wants to be aware of MulTTY itself it should parse its input
+program wants to be aware of mulTTY itself it should parse its input
 to figure out the real `stdin` data.
 
 Stream switching is done with `<SI>` code `0x0e` and `<SO>` code `0x0f`

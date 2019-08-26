@@ -87,7 +87,7 @@ void process_in (size_t asclen, char *ascbuf, int *sifds) {
 /* Outbound processing:
  *  - Read from the appropriate pipeline
  *  - Send SI/SO as necessary to adapt the level
- *  - Escape characters from the MulTTY "sensitive set"
+ *  - Escape characters from the mulTTY "sensitive set"
  */
 void process_out (size_t asclen, char *ascbuf, int aim_silevel) {
 	static int cur_silevel = 0;

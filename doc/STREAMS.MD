@@ -4,6 +4,21 @@
 > It would be useful to migrate this from our version
 > management system to a standards body, if this grows.*
 
+As an example of why streams are useful, consider `zmodem`
+and `sasl`.  Both are useful, but both send the `<CAN>`
+code.  It would be possible to distinguish them by parsing
+additional characters; this would introduce delays and
+complexity.  It would not provide any guarantees, because
+there may be another program interpreting things in yet
+another way.
+
+This is why we think mulTTY is useful -- it provides a
+general mechanism for multiplexing TTY protocols, and we
+believe there are many useful additions beyond these two.
+The following registries for input and output streams by
+name are filled in a first-come-first-served manner under
+a Specification Required policy.
+
 
 ## Output Stream Names
 
@@ -29,6 +44,9 @@
     what menus of command options are available from a
     program.
 
+  * `iana` and *any extensions* are reserved as defined
+    under IANA Standard Names, below.
+
 
 ## Input Steam Names
 
@@ -51,6 +69,9 @@
   * `zmodem` is input by both ZMODEM sender and receiver.
     It informs them what role the other side intends to
     play.
+
+  * `iana` and *any extensions* are reserved as defined
+    under IANA Standard Names, below.
 
 
 ## IANA Standard Names

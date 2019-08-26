@@ -32,7 +32,7 @@ connections and generally offered throughout the Internet
 and even over normal serial connections.  It may be an
 open issue whether binary protocols are sensible over a
 terminal connection, but it is certainly possible.  With
-no support for multiplexing as in MulTTY however, you
+no support for multiplexing as in mulTTY however, you
 are likely to have a garbled display when something is
 sent your way.
 

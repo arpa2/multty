@@ -116,7 +116,7 @@ description for any given name.
 We interpret a few ASCII control codes that are
 otherwise ignored.  We do not touch the ones that are
 in common use, such as `<LF>`, `<BS>`, `<BEL>` and `<ESC>`;
-MulTTY is not a terminal standard, but a set of control
+mulTTY is not a terminal standard, but a set of control
 codes that can be used orthogonally to multiplex and
 redirect traffic between terminals.  It may be made
 part of a terminal, but it could also be arranged
@@ -124,23 +124,13 @@ in a client application or intermediate proxy.
 
 These are the control codes that we believe are useful
 for the kind of middleware control and multiplexing
-that we believe the MulTTY project can add:
+that we believe the mulTTY project can add:
 
   * `<SOH>` starts a name for an entity that will be
-    mentioned afterwards.  The name consists of
-    characters in the range 0x20 to 0x7e and its first
-    64 characters suffice for unique distinction, and
-    more may be cut off anywhere in the communication.
-    If names are to be nested, multiple `<SOH>` prefixed
-    names may be sent in sequence, the "outer" name
-    being the first sent.  The character following the
-    last `<SOH>` name determines what is being named and
-    the name is considered unique for the containing
-    traffic flow at the time of its presentation
-    (which is why multiplexing can add nesting).
-    Names are intended to be humanly readable, though
-    a `<US>` can be used between an machine-friendly
-    textual value and a human-readable string.
+    mentioned afterwards.  See the previous section
+    for deails.  The character following the
+    `<SOH>` name determines what is being named and
+    the name is considered unique for its context.
 
   * `<DC1>` through `<DC4>` control program changes,
     but only in the direction it is sent.  Unknown

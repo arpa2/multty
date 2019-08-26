@@ -45,4 +45,4 @@ importantly, it can be shared with collegues who happen
 to stare at the same terminal while discussing what is
 going on.
 
-In short, logging over MulTTY is at least an option.
+In short, logging over mulTTY is at least an option.

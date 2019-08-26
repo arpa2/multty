@@ -2,7 +2,7 @@
 
 > *This is an experiment to see how far we can take
 > the structuring of data flows in ASCII tables.  Given
-> the basic ideas of MulTTY, can we export the interface
+> the basic ideas of mulTTY, can we export the interface
 > in such a way that control is more of a user style?*
 
 The simplest programs to write are commandline programs.
@@ -45,7 +45,7 @@ information to enable it.
 
 ## Adding Streams for Description
 
-First, the MulTTY enables us to define streams which
+First, the mulTTY enables us to define streams which
 then carry data independently from such streams as
 `stdio` or `stdin`.  We can use those well.
 
@@ -118,7 +118,7 @@ for `<LF>` and `<ESC>`, but it is useful for the
 other control codes used here: `<TAB>`, `<SOH>`,
 `<US>`, `<FS>`, `<GS>`, `<RS>`, `<HT>` and of course the
 other codes defined in the
-[MulTTY specification](ASCII.MD).
+[mulTTY specification](ASCII.MD).
 
 Any strings mentioned in menu structures may
 have an unescaped `<US>` between a machine-readable

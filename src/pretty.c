@@ -1,4 +1,4 @@
-/* MulTTY -> pretty.c -- Present Pretty TTY Pictures
+/* mulTTY -> pretty.c -- Present Pretty TTY Pictures
  *
  * Using pretty, you can assign colours to multiplexes
  * of programs, and of steams within programs.  This is
@@ -20,7 +20,7 @@
  * programs and pretty to present their output with some
  * graphical splendour.
  *
- * As with all of MulTTY, this program only works with
+ * As with all of mulTTY, this program only works with
  * specific ASCII codes and passes all others as-is.
  * Your UTF-8 interpretation, internationalisation and
  * whatever else render-related is no issue to pretty.
@@ -54,7 +54,7 @@
 //  -p,--program-name   includes the program name per line
 //  -s,--stream-name    includes the stream name per line
 //  -l,--line-indent    recovers the indent for lines
-//  -t,--multty TRANS   connects to a MulTTY transport
+//  -t,--multty TRANS   connects to a mulTTY transport
 
 
 
@@ -167,7 +167,7 @@ void multty_output (struct multty_program *prog,
 
 
 /* Split the input into programs and streams.  This is
- * the pivotal point of interpreting the MulTTY traffic
+ * the pivotal point of interpreting the mulTTY traffic
  * and using the special ASCII codes to find the normal
  * ones.
  *
@@ -267,11 +267,11 @@ void multty_split_iter (char *buf, size_t buflen, struct split_state *st) {
 }
 
 
-/* Read MulTTY input as it arrives, and process it by demultiplexing
+/* Read mulTTY input as it arrives, and process it by demultiplexing
  * it into programs and streams, then removing data-link escaping and
  * finally rendering it, with colouring and indentation and so on,
  * based on the program and stream information gotten from removing
- * the MulTTY descriptive information.
+ * the mulTTY descriptive information.
  *
  * The function only returns non-zero on success.
  */
@@ -284,14 +284,14 @@ bool multty_process (int mt) {
 		multty_split_iter (mtbuf, rdlen, &splitst);
 	}
 	if (rdlen < 0) {
-		txterr ("Error reading from MulTTY\n");
+		txterr ("Error reading from mulTTY\n");
 		return false;
 	}
 	return true;
 }
 
 
-/* Open a connection to the MulTTY transport, split data into the
+/* Open a connection to the mulTTY transport, split data into the
  * multiplexed programs and streams, print output with colour and
  * formatting to informally show these multiplexing aspects that
  * originated remotely and that were possibly updated in transit.
@@ -305,10 +305,10 @@ int main (int argc, char *argv []) {
 		exit (1);
 	}
 	//
-	// Connect to the MulTTY transport
+	// Connect to the mulTTY transport
 	int mt = open (argv [2], O_RDWR);
 	if (mt < 0) {
-		txterr ("Failed to open MulTTY transport\n");
+		txterr ("Failed to open mulTTY transport\n");
 		exit (1);
 	}
 	//

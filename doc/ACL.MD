@@ -1,7 +1,7 @@
 # Access Control for MulTTY
 
 > *We can perform excellent access control with the
-> proposed changes in MulTTY.*
+> proposed changes in mulTTY.*
 
 The ARPA2 project provides rich infrastructure and
 efficient tooling for access control management.
@@ -12,7 +12,7 @@ critical systems.
 
 ## Resources and Instances
 
-The central concepts in MulTTY are programs and streams.
+The central concepts in mulTTY are programs and streams.
 Defining access to those gives a good measure of control,
 without being too fine.  Additional control may be used
 for the `stdctl` meta-control channel by naming the

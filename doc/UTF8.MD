@@ -6,7 +6,7 @@
 
 Terminals may assign meaning to bytes with the
 high bit set but, as with other character set
-issues, MulTTY does not care.  It only cares
+issues, mulTTY does not care.  It only cares
 about a number of barely-used ASCII codes that
 it uses to multiplex TTY traffic into programs
 and streams, but not even the popular ones,
@@ -26,6 +26,14 @@ has a reason to break up UTF-8 codes, it will do
 this.  It won't care.  It simply assumes that
 streams will be recombined at the other end
 before they are tested for correct UTF-8 grammar.
+
+Do note: The code 0xff does not pass cleanly
+through telnet connections, as it is the prefix
+for a command.  You would have to escape the
+code by sending it twice or expect some grace
+from the ASCII unpackers by sending `<DLE>` and
+0xbf instead.  Other than that, telnet should
+be fine for 8-bit content.
 
 Bear that in mind, please.  It is reasonable,
 but might catch you by surprise.
