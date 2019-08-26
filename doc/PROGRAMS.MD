@@ -96,6 +96,23 @@ and others might be adapted.  You know, draw
 a QR code and grab your mobile.  Or send a
 code to a device and receive a response.
 
+Note that `telnet` is long gone, but its port
+23 has not been reclaimed and it is still
+meant for ASCII session exchanges.  The only
+thing funny about Telnet is its use of 0xff
+as a command prefix.  As long as `netty` rejects
+any such Telnet attempts (or implements them,
+why not) and otherwise uses `<DLE>` escaping
+for the 0xff command prefix, it should have
+no problem talking to any client, Telnet or
+plain TCP.  Not that a Telnet client would
+understand multiplexing or streams, of course.
+But as long as it constrains itself to listen
+to local addresses `::1` and `127.0.0.1` it
+should be quite useful.  Other than using
+its port for a better purpose, no ads for
+Telnet are implied here :-)
+
 
 ## Handling SASL: saltty
 

@@ -111,6 +111,56 @@ to vary.  This can be used to update the human-friendly
 description for any given name.
 
 
+## Hierarchy of Program Sets
+
+The outer level of a multiplexer presents a set of
+programs.  Such a set has a current and previous
+program, between which it can switch quickly.  Any
+other switches are made by referencing a program
+by name.  These switches indicate to the receiver
+that the output sent towards it is moving from
+one program to another.
+
+This is used so that a multiplexer can forward the
+output from multiple programs.  By switching visibly
+to another program, the receiver knows to process
+the output as coming from the newly selected program.
+The codes below explain how this is encoded in ASCII.
+
+Each program has a current stream for input and another
+one for output.  When switching programs, this current
+stream is not changed.  For a multiplexer, this is
+not of any influence, but for a receiver it means that
+the current stream must be annotated with each program
+whose output is processed.  Programs may change their
+current stream, but only in the output direction.
+Again, the aim is to be able to merge traffic from a
+few connections in such a way that they can be split at
+the receiving end.
+
+Each program can be a parent to yet another program
+set.  This is useful when a multiplexer wants to add
+scoping or, more likely, when a multiplexer merges
+traffic from another multiplexer into its own.  It
+is easier to nest those multiplexers, than to rename
+everything.  It also has a potentially better link
+with intentions for access control, which can then
+reference the nesting structure.
+
+Separate commands exist for moving to a program to
+its parent, or to the program set for which it is
+the parent.  An "outside" multiplexer may have to
+be a little creative with these codes.
+
+It is important to understand that ASCII codes are
+usualy single-byte entities, but we do build a few
+structures, such as the `<SOH>` names and the `<EM>`
+concept.  Care has been taken to support setups with
+a minimum of state, because this state must usually
+be kept when an "outside" multiplexer needs to
+make a switch.
+
+
 ## Control Codes
 
 We interpret a few ASCII control codes that are
@@ -127,8 +177,8 @@ for the kind of middleware control and multiplexing
 that we believe the mulTTY project can add:
 
   * `<SOH>` starts a name for an entity that will be
-    mentioned afterwards.  See the previous section
-    for deails.  The character following the
+    mentioned afterwards.  See above for deails.
+    The character following the
     `<SOH>` name determines what is being named and
     the name is considered unique for its context.
 
@@ -303,7 +353,7 @@ This has loose correspondance with ITU Recommendation T.50,
 formerly known as *International Alphabet No 5* or IA5.
 
 We interpret the general and somewhat vague descriptions
-in this specification somewhat broadly, notably when
+in this specification with more specificity:
 
   * We use `<SOH>` liberally as a naming prefix, not just
     to preface text.  This is not a current practice so
@@ -321,8 +371,8 @@ in this specification somewhat broadly, notably when
     positive atmosphere has been followed.  The use of
     `<DC1>` and `<DC3>` cause a switch to parent and
     back to its current child, which bears a faint
-    resemblence with their interpretation as XON and
-    XOFF.
+    resemblence with their interpretation as XOFF and
+    XON.
 
   * We prefix `<SI>` and `<SO>` with a name to vary the
     multiplexing operation, but other than that we retain

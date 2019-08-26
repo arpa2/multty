@@ -114,6 +114,24 @@ used for authorisation, either at the point of
 login or, perhaps throught a `REMOTE_USER`
 environment variable, in a program further down.
 
+**strength.**
+SASL offers a choice of mechanisms, including the
+same weak password-based mechanisms that nobody
+should use anymore.  The TTY however is held back
+in that sense, for assuming that a user must type
+things literally.  This is certainly not true
+anymore for all modern uses of the TTY interface,
+most certainly not for its uses in containers.
+Stronger mechanisms achieve higher bit strengths
+for authentication.
+
+**sso.**
+SASL can be part of a single-signon scheme, when
+the right mechanisms are used.  Kerberos and
+SAML2 spring to mind, two popular technologies
+in areas of federation or other collaborative
+infrastructures.
+
 **authorisation.**
 Authorisation assumes an established identity,
 such as those assured through a SASL exchange.
@@ -128,10 +146,12 @@ simple key/value database in the container.
 
 **decentral.**
 Even though SASL has a ring of database passwords
-to it, this is in fact dependent on the mechanism.
-We defined an `SXOVER` method that offloads the
-authentication to a server responsible for the
-domain you are about to trust.  Provided that your
+to it, this is in fact dependent on the mechanisms
+supported.  Furthermore, we are working on an
+[SXOVER mechanism](https://tools.ietf.org/html/draft-vanrein-diameter-sasl-00)
+that offloads the authentication to a server
+responsible for the domain part of the username
+(after an `@` symbol).  Provided that your
 network's DNS resolver implements DNSSEC this can
 be easy to use, without configuration on the
 container.  This effectively decentralises accounts
@@ -144,6 +164,17 @@ them, not necessarily leading to authorisation!
 Another point of concern with containers is how to
 get to their TTY at all.  This is an issue that
 is independently problematic.
+
+**transport.**
+Nothing in mulTTY makes assumptions about the
+transport used, except that it should be safe
+to pass SASL traffic and any further interaction.
+A local connection within a system is usually
+workable as well as OpenSSH connections or even
+TLS connections.  Inasfar as we want somthing on
+a TCP port, we might use port 23 (with `<DLE>`
+escaping of code 0xff because Telnet uses it)
+over a direct TCP connection.
 
 **detachment.**
 The de facto implementation of Open Containers is
