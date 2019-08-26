@@ -19,22 +19,27 @@ On a physical desktop, we usually have virtual terminals,
 or a graphical interface to the same effect.  It is not
 normal for light-weight containers to offer graphical
 support, nor do they offer virtual terminals.  The only
-way to do this is adding an SSH service, which however
-calls for networking infrastructure of a kind that the
-container may be trying to steer away from.
+way to do this is by adding software; either a session
+multiplexer such as Screen, Tmux or TWIN, or an terminal
+service such as SSH.  This adds to the weight of a
+container, and SSH also however calls for networking
+infrastructure of a kind that the container may be trying
+to steer away from.
 
 **init.**
 Using mulTTY it is possible to exploit the single TTY
 interface that is commonly provided to access more than
 just one session.  One possible use case of this is to
 provide daemons each with their own TTY output.  This
-can remove the need for logging, and simplify the whole
+can replace the need for logging with a terminal debug
+output stream, and simplify the whole
 `init` flow that is usually kept light in a container
 through
 [dumb-init](https://engineeringblog.yelp.com/2016/01/dumb-init-an-init-for-docker.html)
+which runs a single program but corrects signal handling,
 or when multiple processes should be run through
 [runit](http://kchard.github.io/runit-quickstart/)
-simplifications.  The latter also comes with BusyBox,
+which is very simple.  The latter also comes with BusyBox,
 which also offers its own minimal `/sbin/init` program.
 
 **control.**
@@ -186,9 +191,10 @@ uses involve grabbing the console that was used to
 start the container, possibly even in the safer
 and advised detached mode.  Especially in this mode,
 which does not share a `/dev/pts` terminal but a
-mere socket handle, it is perfectly possible to
-pickup the socket and start a session (possibly
-detached) somewhere in a background.
+mere file descriptor, it is perfectly possible to
+pickup the terminal and start a session (possibly
+detached) somewhere in a background.  Note that
+this mode lends itself to passing an SCTP socket!
 
 **reception.**
 The demonstration tool for picking up on detached
@@ -205,8 +211,11 @@ programs in a mulTTY session.  This mulTTY session
 can be picked up by a user interface and the start
 of a new program can be used to popup windows.
 Programs capable of doing such things could include
-Screen, Tmux and TWIN.  Each of these support a
-detached mode where the screen does not require an
+Screen, Tmux and TWIN.  Unlike what was said before
+these programs now run on the host rather than
+inside the container, which is lighter because of it.
+Each of these session management programs offers a
+detached mode where the session does not require an
 active observer.  Moreover, they also welcome the
 attachment of multiple displays that get to see the
 same outputs, so it can be accessed from various
@@ -230,13 +239,12 @@ and new windows may start a container, and so on.
 Containers can be really intuitive.
 
 **nesting.**
-The programs in mulTTY are nested, so they can allow
-multiplexers to wrap around other multiplexers.  This
+Programs in mulTTY can be nested, in support of
+multiplexers wrapping around other multiplexers.  This
 shows up in this use case too.  The outer programs
-may be containers, or the may be pods that have
-containers nested inside them.  At some point, a
-container's `init` may be accessible and this may
-be yet another multiplexer that starts and restarts
+may be pods, one level deeper might be containers,
+and their `init` would be accessible as
+yet another multiplexer that starts and restarts
 programs that it was told to care for.  The nested
 nature means that each of these programs can have
 their own streams, without risk of interference

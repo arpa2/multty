@@ -343,7 +343,9 @@ that we believe the mulTTY project can add:
     being interpreted as `<BEL>`.  Applications that
     carry binary content, such as SASL, also need to
     escape `<NUL>` as that might otherwise be removed
-    at a whim.
+    at a whim.  Applications that attach to a Telnet
+    port would be wise to escape 0xff to `<DLE>` and
+    0xbf, to not trigger command interpretation.
 
 
 ## Reference
