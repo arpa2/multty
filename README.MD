@@ -17,6 +17,15 @@ places where they are rendered.  There should be no
 problem running many processes over one interface and
 splitting them somewhere else.
 
+For **containers** it is tremendously useful to export
+their programs' interfaces over more than a single
+thin TTY line, without having to add much complexity
+in the containers themselves; multiplexing is a simple
+ASCII discipline that delegates the actual rendering,
+session management and so on to the container's host.
+
+![MulTTY in Action](doc/pix/multty.png)
+
 We propse to enable **remote control** by having an extra
 input stream `stdctl` for interactive commands.  This may
 be used to start, pause, resume, stop and perhaps kill a
