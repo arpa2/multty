@@ -4,6 +4,8 @@
  */
 
 
+#include <arpa2/multty.h>
+
 #include "mtyp-int.h"
 
 
@@ -11,4 +13,8 @@
  * by the usual C conventions.  It is most conveniently referenced
  * with the MULTTY_PROGRAMS macro, that is a pointer to this data.
  */
-struct multty_progset MULTTY_PROGRAMSET_DEFAULT;
+struct multty_progset MULTTY_PROGRAMSET_DEFAULT = {
+	.programs = NULL,
+	.current  = NULL,
+	.previous = NULL,
+};

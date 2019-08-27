@@ -36,9 +36,9 @@ most likely already separated out from other
 conventions.
 
 In this context, ZMODEM can simply be a pair of
-streams.  And indeed, we defined `zmodem-s2r` and
-`zmodem-r2s` as the streams flowing from a sender
-to a receiver, and back.
+streams.  And indeed, we defined `zmodem` as the
+stream flowing in both directions between a
+sender and a receiver.
 
 Interestingly, the signaling by ZMODEM can be
 very useful.  When both arrive in a terminal,

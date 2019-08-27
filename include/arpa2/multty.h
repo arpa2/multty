@@ -119,6 +119,13 @@ typedef struct {
 } MULTTY;
 
 
+/* Programs are identified with a standard structure
+ * holding an id name of up to 32 chars and optionally
+ * a <US> appended to indicate the use of a description.
+ */
+typedef char MULTTY_PROGID [33];
+
+
 /* The types for a program set and program are opaque.
  */
 //MAYBE// struct multty_progset;
@@ -131,7 +138,7 @@ typedef struct multty_prog    MULTTY_PROG   ;
  * It will be instantiated when it referenced, anywhere.
  * Functions call for a pointer, hence MULTTY_PROGRAMS.
  */
-extern const struct multty_progset MULTTY_PROGRAMSET_DEFAULT;
+extern struct multty_progset MULTTY_PROGRAMSET_DEFAULT;
 #define MULTTY_PROGRAMS (&MULTTY_PROGRAMSET_DEFAULT)
 
 
@@ -280,6 +287,44 @@ MULTTY_PROG *mtyp_find (MULTTY_PROGSET *progset, const char id_us[33]);
  * was added is part of the program identity.
  */
 MULTTY_PROG *mtyp_have (MULTTY_PROGSET *progset, const char *id, const char *opt_descr);
+
+
+/* Send raw data for mulTTY program multiplexing.  This stands above
+ * the streams for individual programs.  STREAMS SHOULD NOT USE THIS
+ * BUT mtywrite() TO SEND BINARY DATA.
+ *
+ * This is not a user command, it is intended for mulTTY internals.
+ *
+ * The raw content is supplied as a sequence of pointer and length:
+ *  - uint8_t *buf
+ *  - int      len
+ * The number of these pairs is given by the numbufs parameter.
+ *
+ * This returns >=0 on success, or else -1/errno.
+ */
+ssize_t mtyp_raw (int numbufs, ...);
+
+
+
+/********** FUNCTIONS FOR GENERAL USE **********/
+
+
+
+/* INTERNAL ROUTINE for sending literaly bytes from an iovec
+ * array to stdout.  This is used after composing a complete
+ * structure intended to be sent.
+ *
+ * This is heavily subject to the frivolity of POSIX specs
+ * concerning atomicity.  On the one hand, it is said that
+ * pwritev() is atomic, but on the other hand it is said
+ * not to be an error when writes are partial.  For this
+ * reason, we may define MULTTY_MUTEX_STDOUT and have mutex
+ * locks around our access to stdout, while hoping that no
+ * other senders attempt to do the same at the same time.
+ * Those others however, may be other programs who hold a
+ * duplicate of the file descriptor, which we cannot fix.
+ */
+int mtyv_out (int len, int ioc, const struct iovec *iov);
 
 
 

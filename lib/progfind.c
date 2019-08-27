@@ -10,12 +10,12 @@
 
 
 /* Find a program in the program set, based on
- * its 33-character name with optionally included
- * <US> attachment for programs with a description.
+ * its MULTTY_PROGID.  Such names can be made
+ * with the mtyp_mkid() function.
  */
-MULTTY_PROG *mtyp_find (MULTTY_PROGSET *progset, const char id_us[33]) {
+MULTTY_PROG *mtyp_find (MULTTY_PROGSET *progset, const MULTTY_PROGID id_us) {
 	MULTTY_PROG *retval;
-	HASH_FIND (hh, progset->programs, id_us, 33, retval);
+	HASH_FIND (hh, progset->programs, id_us, sizeof (MULTTY_PROGID), retval);
 	return retval;
 }
 

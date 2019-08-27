@@ -17,19 +17,13 @@
  * purposes and may be later updated if it is
  * provided here.  Whether or not a description
  * was added is part of the program identity.
+ *
+ * The identity in id_us can be made with the
+ * mtyp_mkid() function.  You should take care
+ * to provide the opt_descr iff you constructed
+ * an id_us including the with_descr option.
  */
-MULTTY_PROG *mtyp_have (MULTTY_PROGSET *progset, const char *id, const char *opt_descr) {
-	int idlen = strlen (id);
-	if (idlen > 32) {
-		errno = EINVAL;
-		return NULL;
-	}
-	char id_us [33];
-	memcpy (id_us, id, idlen);
-	memset (id_us+idlen, 0, 33-idlen);
-	if (opt_descr != NULL) {
-		id_us [idlen++] = c_US;
-	}
+MULTTY_PROG *mtyp_have (MULTTY_PROGSET *progset, const MULTTY_PROGID id_us, const char *opt_descr) {
 	MULTTY_PROG *prg = mtyp_find (progset, id_us);
 	if (prg == NULL) {
 		prg = malloc (sizeof (MULTTY_PROGSET));
@@ -38,7 +32,7 @@ MULTTY_PROG *mtyp_have (MULTTY_PROGSET *progset, const char *id, const char *opt
 			return NULL;
 		}
 		memset (prg, 0, sizeof (MULTTY_PROGSET));
-		memcpy (prg->id_us, id_us, 33);
+		memcpy (prg->id_us, id_us, sizeof (MULTTY_PROGID));
 		prg->descr = strdup (opt_descr);
 		if (prg->descr == NULL) {
 			free (prg);
@@ -46,7 +40,7 @@ MULTTY_PROG *mtyp_have (MULTTY_PROGSET *progset, const char *id, const char *opt
 			return NULL;
 		}
 	} else {
-		if ((prg->descr != NULL) && (opt_descr != NULL)) {
+		if ((prg->descr != NULL) && (opt_descr != NULL) && (*opt_descr != c_NUL)) {
 			char *new_descr = strdup (opt_descr);
 			if (new_descr != NULL) {
 				free  (prg->descr);

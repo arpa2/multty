@@ -17,6 +17,12 @@
  */
 void mtyp_drop (MULTTY_PROGSET *progset, MULTTY_PROG *prog) {
 	HASH_DEL (progset->programs, prog);
+	if (progset->current == prog) {
+		progset->current = NULL;
+	}
+	if (progset->previous == prog) {
+		progset->previous = NULL;
+	}
 	if (prog->descr != NULL) {
 		free (prog->descr);
 	}
