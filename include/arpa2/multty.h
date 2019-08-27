@@ -20,6 +20,72 @@
 #include <sys/uio.h>
 
 
+/* A number of ASCII definitions that we use in mulTTY.
+ * The c_XXX forms are characters, s_XXX are strings.
+ * The DCx names are so generic that we add our own,
+ * all starting with letter 'P' for program.
+ */
+#define c_NUL '\x00'
+#define c_SOH '\x01'  /* mulTTY name prefix */
+#define c_STX '\x02'
+#define c_ETX '\x03'
+#define c_SOT '\x04'
+#define c_ENQ '\x05'
+#define c_ACK '\x06'
+#define c_SO  '\x0e'  /* mulTTY stream switch, shift out */
+#define c_SI  '\x0f'  /* mulTTY stream switch, shift in  */
+#define c_DLE '\x10'  /* mulTTY escape, with XOR 0x40 */
+#define c_DC1 '\x11'
+#define c_DC2 '\x12'
+#define c_DC3 '\x13'
+#define c_DC4 '\x14'
+#define c_NAK '\x15'
+#define c_SYN '\x16'
+#define c_ETB '\x17'
+#define c_CAN '\x18'
+#define c_EM  '\x19'  /* mulTTY end of stream/program media */
+#define c_FS  '\x1c'
+#define c_GS  '\x1d'
+#define c_RS  '\x1e'
+#define c_US  '\x1f'  /* mulTTY machine/human name portion separator */
+#define c_DEL '\x7f'
+#define c_IAC '\xff'  /* for Telnet-aware escaping */
+#define c_PUP  c_DC1  /* mulTTY program up     */
+#define c_PRM  c_DC2  /* mulTTY program remove */
+#define c_PDN  c_DC3  /* mulTTY program down   */
+#define c_PSW  c_DC4  /* mulTTY program switch */
+/* strings */
+#define s_NUL "\x00"
+#define s_SOH "\x01"  /* mulTTY name prefix */
+#define s_STX "\x02"
+#define s_ETX "\x03"
+#define s_SOT "\x04"
+#define s_ENQ "\x05"
+#define s_ACK "\x06"
+#define s_SO  "\x0e"  /* mulTTY stream switch, shift out */
+#define s_SI  "\x0f"  /* mulTTY stream switch, shift in  */
+#define s_DLE "\x10"  /* mulTTY escape, with XOR 0x40 */
+#define s_DC1 "\x11"
+#define s_DC2 "\x12"
+#define s_DC3 "\x13"
+#define s_DC4 "\x14"
+#define s_NAK "\x15"
+#define s_SYN "\x16"
+#define s_ETB "\x17"
+#define s_CAN "\x18"
+#define s_EM  "\x19"  /* mulTTY end of stream/program media */
+#define s_FS  "\x1c"
+#define s_GS  "\x1d"
+#define s_RS  "\x1e"
+#define s_US  "\x1f"  /* mulTTY machine/human name portion separator */
+#define s_DEL "\x7f"
+#define s_IAC "\xff"  /* for Telnet-aware escaping */
+#define s_PUP  s_DC1  /* mulTTY program up     */
+#define s_PRM  s_DC2  /* mulTTY program remove */
+#define s_PDN  s_DC3  /* mulTTY program down   */
+#define s_PSW  s_DC4  /* mulTTY program switch */
+
+
 /* Two different escape profiles.  Binary content wants to send
  * no bytes that might be construed as ASCII control codes, and
  * it also encodes 0x00 and 0xff.  ASCII itself, when passed as
@@ -51,6 +117,27 @@ typedef struct {
 	uint8_t buf [1024];
 	uint8_t shift [1];  /* ...continues beyond structure */
 } MULTTY;
+
+
+/* The types for a program set and program are opaque.
+ */
+//MAYBE// struct multty_progset;
+//MAYBE// struct multty_prog;
+typedef struct multty_progset MULTTY_PROGSET;
+typedef struct multty_prog    MULTTY_PROG   ;
+
+
+/* We can have a global variable with the default program set.
+ * It will be instantiated when it referenced, anywhere.
+ * Functions call for a pointer, hence MULTTY_PROGRAMS.
+ */
+extern const struct multty_progset MULTTY_PROGRAMSET_DEFAULT;
+#define MULTTY_PROGRAMS (&MULTTY_PROGRAMSET_DEFAULT)
+
+
+
+/********** FUNCTIONS FOR STREAM MULTIPLEXING **********/
+
 
 
 /* Close the MULTTY handle, after flushing any remaining
@@ -162,6 +249,38 @@ int mtyputs (const char *s, MULTTY *mty);
  * Returns buf-bytes written on success, else -1&errno
  */
 ssize_t mtywrite (MULTTY *mty, const void *buf, size_t count);
+
+
+
+/********** FUNCTIONS FOR PROGRAM MULTIPLEXING **********/
+
+
+
+/* Drop a program in the program set, silently
+ * ignoring if it is absent.  The id is how it
+ * is located, the with_descr option indicates
+ * if a description should be attached, as that
+ * differentiates the name.
+ */
+void mtyp_drop (MULTTY_PROGSET *progset, MULTTY_PROG *prog);
+
+
+/* Find a program in the program set, based on
+ * its 33-character name with optionally included
+ * <US> attachment for programs with a description.
+ */
+MULTTY_PROG *mtyp_find (MULTTY_PROGSET *progset, const char id_us[33]);
+
+
+/* Have a program in the program set, silently
+ * sharing if it already exists.  The id is how it
+ * is located, the opt_descr is for human display
+ * purposes and may be later updated if it is
+ * provided here.  Whether or not a description
+ * was added is part of the program identity.
+ */
+MULTTY_PROG *mtyp_have (MULTTY_PROGSET *progset, const char *id, const char *opt_descr);
+
 
 
 #endif /* ARPA2_MULTTY_H */

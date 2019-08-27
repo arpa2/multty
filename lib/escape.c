@@ -66,7 +66,7 @@ size_t mtyescape (uint32_t style, MULTTY *mty, const uint8_t *ptr, size_t len) {
 			goto stophere;
 		}
 		if (esc) {
-			mty->buf [pos++] = '\x10';  /* <DLE> */
+			mty->buf [pos++] = c_DLE;
 			mty->buf [pos++] = c ^ 0x40;
 		} else {
 			mty->buf [pos++] = c;

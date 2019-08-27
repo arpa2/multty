@@ -38,8 +38,8 @@ MULTTY *mtyopen (const char *streamname, const char *mode) {
 		return NULL;
 	}
 	int nmlen = strlen (streamname);
-	mty->shift [0      ] = '\x01';  /* <SOH> */
-	mty->shift [1+nmlen] = '\x0f';  /* <SO>  */
+	mty->shift [0      ] = c_SOH;
+	mty->shift [1+nmlen] = c_SO ;
 	memcpy (mty->shift+1, streamname, nmlen);
 	if ((strcmp (streamname, "stdin" ) == 0) ||
 	    (strcmp (streamname, "stdout") == 0)    ) {
