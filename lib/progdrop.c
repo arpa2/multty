@@ -24,7 +24,7 @@ void mtyp_drop (MULTTY_PROGSET *progset, MULTTY_PROG *prog) {
 		progset->previous = NULL;
 	}
 	if (prog->descr != NULL) {
-		free (prog->descr);
+		free ((void *) prog->descr);
 	}
 	free (prog);
 }

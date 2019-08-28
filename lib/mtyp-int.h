@@ -14,7 +14,7 @@ struct multty_prog {
 	// note: early cut-off with <NUL> but <US> might also be in [32]
 	MULTTY_PROGID id_us;
 	// descr points to a varying description if <US> was added
-	char *descr;
+	const char *descr;
 	// hash table data
 	UT_hash_handle hh;
 };

@@ -22,8 +22,14 @@
  * mtyp_mkid() function.  You should take care
  * to provide the opt_descr iff you constructed
  * an id_us including the with_descr option.
+ *
+ * Returns a handle on success, or else NULL/errno.
  */
 MULTTY_PROG *mtyp_have (MULTTY_PROGSET *progset, const MULTTY_PROGID id_us, const char *opt_descr) {
+	if ((opt_descr != NULL) && !mtyescapefree (MULTTY_ESC_ASCII, opt_descr, strlen (opt_descr))) {
+		errno = EINVAL;
+		return NULL;
+	}
 	MULTTY_PROG *prg = mtyp_find (progset, id_us);
 	if (prg == NULL) {
 		prg = malloc (sizeof (MULTTY_PROGSET));
@@ -40,12 +46,8 @@ MULTTY_PROG *mtyp_have (MULTTY_PROGSET *progset, const MULTTY_PROGID id_us, cons
 			return NULL;
 		}
 	} else {
-		if ((prg->descr != NULL) && (opt_descr != NULL) && (*opt_descr != c_NUL)) {
-			char *new_descr = strdup (opt_descr);
-			if (new_descr != NULL) {
-				free  (prg->descr);
-				prg->descr = new_descr;
-			}
+		if ((opt_descr != NULL) && !mtyp_describe (prg, opt_descr)) {
+			return NULL;
 		}
 	}
 }

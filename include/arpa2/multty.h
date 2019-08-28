@@ -157,6 +157,15 @@ extern struct multty_progset MULTTY_PROGRAMSET_DEFAULT;
 
 
 
+/* Construct a standard identity structure from an identity string
+ * (up to 32 chars) with an optionally appended <US> when it will
+ * carry along a description.
+ *
+ * Return true on success, or else false.
+ */
+bool mtyp_mkid (const char *id, bool with_descr, MULTTY_PROGID prgid);
+
+
 /* Close the MULTTY handle, after flushing any remaining
  * buffer contents.
  *
@@ -206,7 +215,7 @@ bool mtyescapewish (uint32_t style, char ch);
  * a place for embedded <DLE> or <SOH> characters to avoid
  * accidentally or malicuously overtaking <US> or <XXX>.
  */
-bool mtyescapefree (uint32_t style, char *ptr, int len);
+bool mtyescapefree (uint32_t style, const char *ptr, int len);
 
 
 /* Escape a string and move it into the indicated MULTTY buffer.
@@ -251,10 +260,19 @@ int mtyflush (MULTTY *mty);
  * The buffer is assumed to already be escaped inasfar as
  * necessary.
  *
- * There are no default open handles.  You have to open
- * a handle for "stdout" (if you don't use puts() and co)
- * and "stdin" and "stderr" yourself.  The default place
- * of "stdin" and "stdout" is recognised in this routine.
+ * There are default handles opened for MULTTY_STDOUT and
+ * MULTTY_STDIN and MULTTY_STDERR.  Note that "stderr" is
+ * in no way special because it is just a named stream,
+ * but "stdout" and "stdin" are default streams and need
+ * no stream shifting because we return to it after all
+ * other writes and reads.  If you open "stdout" and
+ * "stdin" here you do get them with the explicit stream
+ * shift, which is harmless and actually necessary when
+ * not all other uses return to the default stream.
+ *
+ * The streamname must be free from any control codes or
+ * other aspects that would incur MULTTY_ESC_BINARY, or
+ * else mytopen() returns NULL/EINVAL.
  *
  * Drop-in replacement for fopen() with FILE changed to MULTTY.
  * Returns a handle on success, else NULL+errno.
@@ -310,8 +328,23 @@ MULTTY_PROG *mtyp_find (MULTTY_PROGSET *progset, const char id_us[33]);
  * purposes and may be later updated if it is
  * provided here.  Whether or not a description
  * was added is part of the program identity.
+ *
+ * Returns a handle on success, or else NULL/errno.
  */
 MULTTY_PROG *mtyp_have (MULTTY_PROGSET *progset, const char *id, const char *opt_descr);
+
+
+/* Describe a program with a new string.  This
+ * includes a test whether the string contains
+ * only passable ASCII content, so no control codes
+ * that could confuse mulTTY.
+ *
+ * Note that setting a description is only welcome
+ * if it was opened to have one.
+ *
+ * Returns true on success, or else false/errno.
+ */
+bool mtyp_describe (MULTTY_PROG *prog, const char *descr);
 
 
 /* Send raw data for mulTTY program multiplexing.  This stands above

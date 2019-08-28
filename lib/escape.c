@@ -58,7 +58,7 @@ bool mtyescapewish (uint32_t style, char ch) {
  * a place for embedded <DLE> or <SOH> characters to avoid
  * accidentally or malicuously overtaking <US> or <XXX>.
  */
-bool mtyescapefree (uint32_t style, char *ptr, int len) {
+bool mtyescapefree (uint32_t style, const char *ptr, int len) {
 	while (len-- > 0) {
 		if (mtyescapewish (style, *ptr++)) {
 			return false;

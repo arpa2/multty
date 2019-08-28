@@ -48,7 +48,7 @@ int mtyp_switch (MULTTY_PROGSET *progset, MULTTY_PROGID id_us) {
 	}
 	//
 	// Produce the full output message (no data, so no need to flush it out)
-	char *descr = prog->descr;
+	const char *descr = prog->descr;
 	if (descr == NULL) {
 		descr = "";
 	}

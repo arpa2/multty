@@ -32,17 +32,24 @@
  * shift, which is harmless and actually necessary when
  * not all other uses return to the default stream.
  *
+ * The streamname must be free from any control codes or
+ * other aspects that would incur MULTTY_ESC_BINARY, or
+ * else mytopen() returns NULL/EINVAL.
+ *
  * Drop-in replacement for fopen() with FILE changed to MULTTY.
- * Returns a handle on success, else NULL+errno.
+ * Returns a handle on success, else NULL/errno.
  */
 MULTTY *mtyopen (const char *streamname, const char *mode) {
-	//ALT// We could also store the streamname in the buffer
+	int nmlen = strlen (streamname);
+	if (!mtyescapefree (MULTTY_ESC_BINARY, streamname, nmlen)) {
+		errno = EINVAL;
+		return NULL;
+	}
 	MULTTY *mty = malloc (sizeof (MULTTY) + strlen (streamname) + 1);
 	if (mty == NULL) {
 		errno = ENOMEM;
 		return NULL;
 	}
-	int nmlen = strlen (streamname);
 	/* Insert a shift statement at the start */
 	/* Note: MULTTY_STDOUT and MULTTY_STDIN don't have this */
 	mty->buf [0] = c_SOH;
