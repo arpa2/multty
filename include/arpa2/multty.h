@@ -131,7 +131,7 @@ struct multty {
 	MULTTY_PROG *prog;
 	int shift;
 	int fill;
-	uint8_t buf [PIPE_BUF-1];
+	uint8_t buf [PIPE_BUF-1]; uint8_t buf_overrun_SO;
 };
 typedef struct multty MULTTY;
 
