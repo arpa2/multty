@@ -55,7 +55,7 @@ int newerr = 2;
  * We only use stderr to report our own errors.
  * Returns only non-zero on success.
  */
-int combine_streams (int subout, int suberr) {
+int combine_streams (int subout, int suberr, MULTTY *stream_out, MULTTY *stream_err) {
 	int ok = 1;
 	int level = 1;
 	int maxfd = (subout > suberr) ? subout : suberr;
@@ -80,7 +80,7 @@ int combine_streams (int subout, int suberr) {
 			} else if (gotlen == 0) {
 				subout = -1;
 			} else {
-				if (!mtyputstrbuf (MULTTY_STDOUT, buf, gotlen)) {
+				if (!mtyputstrbuf (stream_out, buf, gotlen)) {
 					txterr ("Unable to pass child stdout\n");
 					ok = 0;
 					subout = -1;
@@ -96,7 +96,7 @@ int combine_streams (int subout, int suberr) {
 			} else if (gotlen == 0) {
 				suberr = -1;
 			} else {
-				if (!mtyputstrbuf (MULTTY_STDERR, buf, gotlen)) {
+				if (!mtyputstrbuf (stream_err, buf, gotlen)) {
 					txterr ("Unable to pass child stderr\n");
 					ok = 0;
 					suberr = -1;
@@ -116,10 +116,37 @@ int main (int argc, char *argv []) {
 	int ok = 1;
 	//
 	// Parse commandline arguments
-	int argi = 2;
-	if ((argc < 2) || strcmp (argv [1], "--")) {
-		txterr ("Usage: dotty -- cmd [args...]\n");
-		exit (1);
+	MULTTY *stream_out = MULTTY_STDOUT;
+	MULTTY *stream_err = MULTTY_STDERR;
+	int opt;
+	bool help = false;
+	bool error = false;
+	while ((opt = getopt (argc, argv, "hi:o:e:")) != -1) {
+		switch (opt) {
+		case 'i':
+			txterr ("Option -i not yet supported (no input parsing implemented yet)\n");
+			break;
+		case 'o':
+			stream_out = mtyopen (optarg, "w");
+			break;
+		case 'e':
+			stream_err = mtyopen (optarg, "w");
+			break;
+		default:
+			error = true;
+			/* continue into 'h' */
+		case 'h':
+			help = true;
+			break;
+		}
+	}
+	int argi = optind;
+	if (argc - argi < 1) {
+		error = error || !help;
+	}
+	if (help || error) {
+		txterr ("Usage: dotty [-i|-o|-e NAME]... -- cmd [args...]\n");
+		exit (error ? 1 : 0);
 	}
 	//
 	// Construct redirection pipes
@@ -172,12 +199,8 @@ int main (int argc, char *argv []) {
 	}
 	//
 	// Multiplex the messages sent to stdout and stderr
-	//  - initial sending on stdout
-	//  - absolute switch to stdout with SI,SO
-	//  - absolute switch to stderr with SI,SO,SO
-	//  - relative switch to stderr with       SO
-	//
-	ok = ok && combine_streams (pipout [0], piperr [0]);
+	// Process optional stream names given with -o and -e
+	ok = ok && combine_streams (pipout [0], piperr [0], stream_out, stream_err);
 	// Wait for the child to finish, then wrapup
 	int status;
 	waitpid (child, &status, 0);
