@@ -80,8 +80,7 @@ int combine_streams (int subout, int suberr) {
 			} else if (gotlen == 0) {
 				subout = -1;
 			} else {
-				printf ("stdout: %d out of %d\n", mtyputs (MULTTY_STDOUT, buf, gotlen), gotlen);
-				if (0) { // if (mtywrite (MULTTY_STDOUT, buf, gotlen) != gotlen) {
+				if (!mtyputstrbuf (MULTTY_STDOUT, buf, gotlen)) {
 					txterr ("Unable to pass child stdout\n");
 					ok = 0;
 					subout = -1;
@@ -97,7 +96,7 @@ int combine_streams (int subout, int suberr) {
 			} else if (gotlen == 0) {
 				suberr = -1;
 			} else {
-				if (mtyputs (MULTTY_STDERR, buf, gotlen) != gotlen) {
+				if (!mtyputstrbuf (MULTTY_STDERR, buf, gotlen)) {
 					txterr ("Unable to pass child stderr\n");
 					ok = 0;
 					suberr = -1;

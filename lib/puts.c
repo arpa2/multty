@@ -15,15 +15,25 @@
  * Drop-in replacement for fputs() with FILE changed to MULTTY.
  * Returns >=0 on success, else EOF+errno
  */
-int mtyputs (const char *s, MULTTY *mty) {
+// Moved to inline: int mtyputs (const char *s, MULTTY *mty);
+
+
+/* Send an ASCII string buffer to the given mulTTY stream.
+ * Since it is ASCII, it will be escaped as seen fit.
+ *
+ * Return true on success, else false/errno.
+ */
+bool mtyputstrbuf (MULTTY *mty, const char *strbuf, int buflen) {
 	int retval = 0;
-	int tgtlen = strlen (s);
 	int esclen;
-	while (tgtlen > 0) {
-		esclen = mtyescape (MULTTY_ESC_ASCII, mty, s, tgtlen);
-		s      += esclen;
-		tgtlen -= esclen;
-		retval = mtyflush (mty);
+	while (buflen > 0) {
+		esclen = mtyescape (MULTTY_ESC_ASCII, mty, strbuf, buflen);
+		strbuf += esclen;
+		buflen -= esclen;
+		if (mtyflush (mty) != 0) {
+			return false;
+		}
 	}
+	return true;
 }
 

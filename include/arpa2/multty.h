@@ -198,7 +198,7 @@ int mtyclose (MULTTY *mty);
  * Escaping is not done here.  It is simply a prefix <DLE> and
  * the character will be added XOR 0x40.
  */
-bool mtyescapewish (uint32_t style, char ch);
+bool mtyescapewish (uint32_t style, uint8_t ch);
 
 
 /* Check that a character sequence is free from the wish to
@@ -218,7 +218,7 @@ bool mtyescapewish (uint32_t style, char ch);
  * a place for embedded <DLE> or <SOH> characters to avoid
  * accidentally or malicuously overtaking <US> or <XXX>.
  */
-bool mtyescapefree (uint32_t style, const char *ptr, int len);
+bool mtyescapefree (uint32_t style, const uint8_t *ptr, int len);
 
 
 /* Escape a string and move it into the indicated MULTTY buffer.
@@ -275,7 +275,7 @@ int mtyflush (MULTTY *mty);
  *
  * The streamname must be free from any control codes or
  * other aspects that would incur MULTTY_ESC_BINARY, or
- * else mytopen() returns NULL/EINVAL.
+ * else mtyopen() returns NULL/EINVAL.
  *
  * Drop-in replacement for fopen() with FILE changed to MULTTY.
  * Returns a handle on success, else NULL+errno.
@@ -283,13 +283,24 @@ int mtyflush (MULTTY *mty);
 MULTTY *mtyopen (const char *streamname, const char *mode);
 
 
+/* Send an ASCII string buffer to the given mulTTY stream.
+ * Since it is ASCII, it will be escaped as seen fit.
+ *
+ * Return true on success, else false/errno.
+ */
+bool mtyputstrbuf (MULTTY *mty, const char *strbuf, int buflen);
+
+
 /* Send an ASCII string to the given mulTTY steam.
  * Since it is ASCII, it will be escaped as seen fit.
  *
  * Drop-in replacement for fputs() with FILE changed to MULTTY.
- * Returns >=0 on success, else EOF+errno
+ * Returns >=0 on success, else EOF/errno
  */
-int mtyputs (const char *s, MULTTY *mty);
+inline int mtyputs (const char *s, MULTTY *mty) {
+	bool ok = mtyputstrbuf (mty, s, strlen (s));
+	return ok ? 0 : EOF;
+}
 
 
 /* Send binary data to the given mulTTY steam.

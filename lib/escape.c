@@ -27,7 +27,7 @@
  * Escaping is not done here.  It is simply a prefix <DLE> and
  * the character will be added XOR 0x40.
  */
-bool mtyescapewish (uint32_t style, char ch) {
+bool mtyescapewish (uint32_t style, uint8_t ch) {
 	if (ch == 0x7f) {
 		ch = 0x08;
 	} else if (ch == 0xff) {
@@ -58,9 +58,9 @@ bool mtyescapewish (uint32_t style, char ch) {
  * a place for embedded <DLE> or <SOH> characters to avoid
  * accidentally or malicuously overtaking <US> or <XXX>.
  */
-bool mtyescapefree (uint32_t style, const char *ptr, int len) {
+bool mtyescapefree (uint32_t style, const uint8_t *ptr, int len) {
 	while (len-- > 0) {
-		if (mtyescapewish (style, *ptr++)) {
+		if (mtyescapewish (style, (uint8_t) *ptr++)) {
 			return false;
 		}
 	}
@@ -88,7 +88,7 @@ size_t mtyescape (uint32_t style, MULTTY *mty, const uint8_t *ptr, size_t len) {
 	while (len-- > 0) {
 		//
 		// Try to find the room for one more character
-		char c = *ptr++;
+		uint8_t c = *ptr++;
 		bool esc = mtyescapewish (style, c);
 		if (mty->fill + (esc ? 2 : 1) >= sizeof (mty->buf)) {
 			goto stophere;
