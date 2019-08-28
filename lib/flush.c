@@ -7,6 +7,26 @@
 #include <arpa2/multty.h>
 
 
+/* TODO: How to know if a stream mixes into a multi-program context?
+ *       In a single-program context, such as an application, it is
+ *       silly to switch to a program at this point.  For mixed
+ *       programs it is downright convenient.  At least his set of
+ *       declarations cause an error when mixing wrongly.
+ */
+
+#ifndef MULTTY_MIXED
+/* Placeholder for mtyp_switch() in absense of program mixing.
+ *
+ * TODO: Streams may need to claim until they release.
+ *
+ * Return 0 for success.
+ */
+inline int mtyp_switch (MULTTY_PROG *prog) {
+	return 0;
+}
+#endif
+
+
 /* Flush the MULTTY buffer to the output, using atomic
  * sending of up to PIPE_BUF bytes, so no interrupts with
  * other streams even in a multi-threading program.  Return
@@ -24,6 +44,12 @@ int mtyflush (MULTTY *mty) {
 	struct iovec io0;
 	io0.iov_base = mty->buf;
 	io0.iov_len  = mty->fill;
+	//
+	// If this stream is assigned to a program, switch to it
+	if (mty->prog != NULL) {
+		/*TODO:RETVAL*/
+		mtyp_switch (mty->prog);
+	}
 	//
 	// We need to add <SO> to mty->buf for all stream shifters
 	if (mty->shift > 0) {

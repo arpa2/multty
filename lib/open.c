@@ -50,6 +50,7 @@ MULTTY *mtyopen (const char *streamname, const char *mode) {
 		errno = ENOMEM;
 		return NULL;
 	}
+	mty->prog = NULL;
 	/* Insert a shift statement at the start */
 	/* Note: MULTTY_STDOUT and MULTTY_STDIN don't have this */
 	mty->buf [0] = c_SOH;

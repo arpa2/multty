@@ -26,27 +26,38 @@
  * Returns a handle on success, or else NULL/errno.
  */
 MULTTY_PROG *mtyp_have (MULTTY_PROGSET *progset, const MULTTY_PROGID id_us, const char *opt_descr) {
+	//
+	// Any opt_descr provided must be free from ASCII escapables
 	if ((opt_descr != NULL) && !mtyescapefree (MULTTY_ESC_ASCII, opt_descr, strlen (opt_descr))) {
 		errno = EINVAL;
 		return NULL;
 	}
-	MULTTY_PROG *prg = mtyp_find (progset, id_us);
-	if (prg == NULL) {
-		prg = malloc (sizeof (MULTTY_PROGSET));
-		if (prg == NULL) {
+	//
+	// See if the program already exists in the indicates program set
+	MULTTY_PROG *prog = mtyp_find (progset, id_us);
+	if (prog == NULL) {
+		//
+		// New program name; allocate and initialise
+		prog = malloc (sizeof (MULTTY_PROGSET));
+		if (prog == NULL) {
 			errno = ENOMEM;
 			return NULL;
 		}
-		memset (prg, 0, sizeof (MULTTY_PROGSET));
-		memcpy (prg->id_us, id_us, sizeof (MULTTY_PROGID));
-		prg->descr = strdup (opt_descr);
-		if (prg->descr == NULL) {
-			free (prg);
-			errno = ENOMEM;
-			return NULL;
+		memset (prog, 0, sizeof (MULTTY_PROGSET));
+		memcpy (prog->id_us, id_us, sizeof (MULTTY_PROGID));
+		prog->set = progset;
+		if (opt_descr != NULL) {
+			prog->descr = strdup (opt_descr);
+			if (prog->descr == NULL) {
+				free (prog);
+				errno = ENOMEM;
+				return NULL;
+			}
 		}
 	} else {
-		if ((opt_descr != NULL) && !mtyp_describe (prg, opt_descr)) {
+		//
+		// Existing program name; possibly change description
+		if ((opt_descr != NULL) && !mtyp_describe (prog, opt_descr)) {
 			return NULL;
 		}
 	}

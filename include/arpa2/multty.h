@@ -109,26 +109,6 @@
 	(1<<24)|(1<<25)|(1<<28)|(1<<29)|(1<<30)|(1<<31)) )
 
 
-/* The handle structure, with builtin buffer and stream name,
- * for for a MULTTY stream.
- */
-struct multty {
-	int shift;
-	int fill;
-	uint8_t buf [PIPE_BUF-1];
-};
-typedef struct multty MULTTY;
-
-
-/* Standard pre-opened handles for "stdin", "stdout", "stderr".
- * Stored in global variables that may be included.
- */
-extern struct multty MULTTY_STDIN;
-extern struct multty MULTTY_STDOUT;
-extern struct multty MULTTY_STDERR;
-
-
-
 /* Programs are identified with a standard structure
  * holding an id name of up to 32 chars and optionally
  * a <US> appended to indicate the use of a description.
@@ -142,6 +122,26 @@ typedef char MULTTY_PROGID [33];
 //MAYBE// struct multty_prog;
 typedef struct multty_progset MULTTY_PROGSET;
 typedef struct multty_prog    MULTTY_PROG   ;
+
+
+/* The handle structure, with builtin buffer and stream name,
+ * for for a MULTTY stream.
+ */
+struct multty {
+	MULTTY_PROG *prog;
+	int shift;
+	int fill;
+	uint8_t buf [PIPE_BUF-1];
+};
+typedef struct multty MULTTY;
+
+
+/* Standard pre-opened handles for "stdin", "stdout", "stderr".
+ * Stored in global variables that may be included.
+ */
+extern struct multty MULTTY_STDIN;
+extern struct multty MULTTY_STDOUT;
+extern struct multty MULTTY_STDERR;
 
 
 /* We can have a global variable with the default program set.
@@ -364,6 +364,19 @@ bool mtyp_describe (MULTTY_PROG *prog, const char *descr);
  * This returns true on success, or else false/errno.
  */
 bool mtyp_raw (int numbufs, ...);
+
+
+/* Switch to another program, and send the corresponding control code
+ * over stdout.  The identity can be constructed with mtyp_mkid()
+ * and hints at an optional description.
+ *
+ * It is assumed that the program switched to exists.
+ *
+ * TODO: Streams may need to claim until they release.
+ *
+ * Return 0 on success or else -1/errno.
+ */
+int mtyp_switch (MULTTY_PROG *prog);
 
 
 

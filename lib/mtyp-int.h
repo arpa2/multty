@@ -13,6 +13,7 @@ struct multty_prog {
 	// id_us is the identity in <=32 chars, plus optional <US>
 	// note: early cut-off with <NUL> but <US> might also be in [32]
 	MULTTY_PROGID id_us;
+	MULTTY_PROGSET *set;
 	// descr points to a varying description if <US> was added
 	const char *descr;
 	// hash table data
