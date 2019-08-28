@@ -28,6 +28,8 @@
 #include <sys/wait.h>
 #include <sys/select.h>
 
+#include <arpa2/multty.h>
+
 
 
 /* Simple redefinitions for stdout and stderr,
@@ -45,102 +47,21 @@ int newerr = 2;
 #define txtout(s) bufout((s), strlen ((s)))
 #define txterr(s) buferr((s), strlen ((s)))
 
-#define SO  0x0e
-#define SI  0x0f
-#define DLE 0x10
-#define DEL 0x7f
-#define SOH 0x01
-#define ETB 0x17
-#define EM  0x19
-#define DC1 0x11
-#define DC2 0x12
-#define DC3 0x13
-#define DC4 0x14
 
-#define SO_s  "\x0e"
-#define SI_s  "\x0f"
-#define DLE_s "\x10"
-#define DEL_s "\x7f"
-#define SOH_s "\x01"
-
-#define MAXBUF 4096
+#define BUFLEN 1024
 
 
-/* mulTTY escapes are needed for:
- *
- * NUL, SOH, STX, ETX, EOT, ENQ, ACK, DLE, DC1, DC2,
- * DC3, DC4, NAK, SYN, ETB, CAN, EM, FS, GS, RS, US, DEL.
- *
- * With the exception of DEL, these are expressed in the
- * bitmask below.  DEL has a funny code.
- *
- * If you insist on using Telnet as a protocol, you may
- * also have to escape 0xff, which is a prefix for a
- * remote command.  You can either use DLE escaping or
- * send a double 0xff in this case, where the former
- * would work along with other mulTTY escapes and the
- * latter would assume Telnet to be the carrier.
- */
-#define MULTTY_ESCAPED ((1<<0)|(1<<1)|(1<<2)|(1<<3)| \
-	(1<<4)|(1<<5)|(1<<6)|(1<<16)|(1<<17)|(1<<18)| \
-	(1<<19)|(1<<20)|(1<<21)|(1<<22)|(1<<23)|(1<<24)| \
-	(1<<25)|(1<<28)|(1<<29)|(1<<30)|(1<<31))
-
-
-/* Return whether a character needs to be escaped.
- * See the definition of MULTTY_ESCAPED before, and
- * add DEL.
- */
-bool multty_escaped (char c) {
-	if (c > 0x20) {
-		return (c == 0x7f);
-	} else {
-		return ((MULTTY_ESCAPED & (1 << c)) != 0);
-	}
-}
-
-
-/* Add escape codes to a mulTTY stream, meaning that all
- * control codes used in mulTTY are prefixed with DLE and
- * XORed with 0x40.  In the most extreme case, the buffer
- * grows to double the size, which must be possible.  The
- * new buffer length is returned.
- */
-size_t multty_escape (char *buf, size_t buflen) {
-	int escctr = 0;
-	int i;
-	for (i=0; i<buflen; i++) {
-		if (multty_escaped (buf [i])) {
-			escctr++;
-		}
-	}
-	buflen += escctr;
-	i = buflen;
-	while (escctr > 0) {
-		if (multty_escaped (buf [i-escctr])) {
-			buf [--i] = buf [i-escctr] ^ 0x40;
-			buf [--i] = DLE;
-			escctr--;
-		} else {
-			buf [--i] = buf [i-escctr];
-		}
-	}
-	return buflen;
-}
-
-
-/* Multiplex child stdout and stderr onto newout.
+/* Combine the child's stdout and stderr streams on newout.
  * We only use stderr to report our own errors.
  * Returns only non-zero on success.
  */
-int multiplex (int subout, int suberr) {
+int combine_streams (int subout, int suberr) {
 	int ok = 1;
 	int level = 1;
 	int maxfd = (subout > suberr) ? subout : suberr;
 	fd_set both;
 	int more = 1;
-	char buf [3 + MAXBUF + MAXBUF];
-	ssize_t buflen;
+	char buf [BUFLEN];
 	ssize_t gotlen;
 	while ((subout >= 0) || (suberr >= 0)) {
 		FD_ZERO (&both);
@@ -150,13 +71,8 @@ int multiplex (int subout, int suberr) {
 			txterr ("Failed to select stdout/stderr");
 			exit (1);
 		}
-		buflen = 0;
 		if (FD_ISSET (subout, &both)) {
-			if (level != 1) {
-				memcpy (buf, SI_s SO_s, buflen = 2);
-				level = 1;
-			}
-			gotlen = read (subout, buf+buflen, MAXBUF);
+			gotlen = read (subout, buf, BUFLEN);
 			if (gotlen < 0) {
 				txterr ("Error reading from child stdout\n");
 				ok = 0;
@@ -164,8 +80,8 @@ int multiplex (int subout, int suberr) {
 			} else if (gotlen == 0) {
 				subout = -1;
 			} else {
-				gotlen = multty_escape (buf+buflen, gotlen);
-				if (bufout (buf, buflen + gotlen) != buflen + gotlen) {
+				printf ("stdout: %d out of %d\n", mtyputs (MULTTY_STDOUT, buf, gotlen), gotlen);
+				if (0) { // if (mtywrite (MULTTY_STDOUT, buf, gotlen) != gotlen) {
 					txterr ("Unable to pass child stdout\n");
 					ok = 0;
 					subout = -1;
@@ -173,17 +89,7 @@ int multiplex (int subout, int suberr) {
 			}
 		}
 		if (FD_ISSET (suberr, &both)) {
-#ifdef USE_RELATIVE_STDERR
-			if (level == 1) {
-				memcpy (buf, SO_s, buflen = 1);
-				level++;
-			}
-#endif
-			if (level != 2) {
-				memcpy (buf, SI_s SO_s SO_s, buflen = 3);
-				level = 2;
-			}
-			gotlen = read (suberr, buf+buflen, MAXBUF);
+			gotlen = read (suberr, buf, BUFLEN);
 			if (gotlen < 0) {
 				txterr ("Error reading from child stderr\n");
 				ok = 0;
@@ -191,8 +97,7 @@ int multiplex (int subout, int suberr) {
 			} else if (gotlen == 0) {
 				suberr = -1;
 			} else {
-				gotlen = multty_escape (buf+buflen, gotlen);
-				if (bufout (buf, buflen + gotlen) != buflen + gotlen) {
+				if (mtyputs (MULTTY_STDERR, buf, gotlen) != gotlen) {
 					txterr ("Unable to pass child stderr\n");
 					ok = 0;
 					suberr = -1;
@@ -259,8 +164,12 @@ int main (int argc, char *argv []) {
 	default:
 		/* Parent */
 		close (0);
-		close (1);
-		close (2);
+		dup2 (newout, 1);
+		dup2 (newerr, 2);
+		close (newout);
+		close (newerr);
+		newout = 1;
+		newerr = 2;
 	}
 	//
 	// Multiplex the messages sent to stdout and stderr
@@ -269,7 +178,7 @@ int main (int argc, char *argv []) {
 	//  - absolute switch to stderr with SI,SO,SO
 	//  - relative switch to stderr with       SO
 	//
-	ok = ok && multiplex (pipout [0], piperr [0]);
+	ok = ok && combine_streams (pipout [0], piperr [0]);
 	// Wait for the child to finish, then wrapup
 	int status;
 	waitpid (child, &status, 0);

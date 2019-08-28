@@ -1,7 +1,8 @@
-all: dotty pretty
+# all: dotty pretty
+all: dotty
 
 dotty: dotty.c
-	gcc -DUSE_RELATIVE_STDERR -o $@ $<
+	gcc -ggdb -I../include -L ../lib -o $@ $< -lmultty
 
 pretty: pretty.c
-	gcc -o $@ $<
+	gcc -ggdb -I../include -L ../lib -o $@ $< -lmultty

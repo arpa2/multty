@@ -10,7 +10,7 @@
 #include <arpa2/multty.h>
 
 
-struct multty MULTTY_STDIN = {
+struct multty multty_stdin = {
 	.shift = 0,
 	.fill  = 0,
 };

@@ -10,7 +10,7 @@
 #include <arpa2/multty.h>
 
 
-struct multty MULTTY_STDOUT = {
+struct multty multty_stdout = {
 	.shift = 0,
 	.fill  = 0,
 };

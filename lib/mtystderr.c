@@ -10,7 +10,7 @@
 #include <arpa2/multty.h>
 
 
-struct multty MULTTY_STDERR = {
+struct multty multty_stderr = {
 	.shift = 8,
 	.fill  = 8,
 	.buf = { c_SOH, 's', 't', 'd', 'e', 'r', 'r', c_SO },

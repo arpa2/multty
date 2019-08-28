@@ -33,7 +33,7 @@ bool mtyescapewish (uint32_t style, char ch) {
 	} else if (ch == 0xff) {
 		ch = 0x00;
 	}
-	if (ch < 0x20) {
+	if (ch >= 0x20) {
 		return false;
 	} else {
 		return (style & (1 << ch)) != 0;

@@ -26,8 +26,8 @@ SOURCES_PLEX+=prograw.c
 SOURCES_PLEX+=progswitch.c
 
 libmultty.so: $(SOURCES)
-	gcc -shared -I ../include -o $@ $(SOURCES)
+	gcc -ggdb -shared -I ../include -o $@ $(SOURCES)
 
 libmulttyplex.so: $(SOURCES_PLEX)
-	gcc -shared -I ../include -o $@ $(SOURCES_PLEX)
+	gcc -ggdb -shared -I ../include -o $@ $(SOURCES_PLEX)
 

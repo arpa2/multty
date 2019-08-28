@@ -139,9 +139,12 @@ typedef struct multty MULTTY;
 /* Standard pre-opened handles for "stdin", "stdout", "stderr".
  * Stored in global variables that may be included.
  */
-extern struct multty MULTTY_STDIN;
-extern struct multty MULTTY_STDOUT;
-extern struct multty MULTTY_STDERR;
+extern struct multty multty_stdin;
+extern struct multty multty_stdout;
+extern struct multty multty_stderr;
+#define MULTTY_STDIN  (&multty_stdin )
+#define MULTTY_STDOUT (&multty_stdout)
+#define MULTTY_STDERR (&multty_stderr)
 
 
 /* We can have a global variable with the default program set.
