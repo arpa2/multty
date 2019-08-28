@@ -4,6 +4,10 @@
  */
 
 
+#include <limits.h>
+
+#include <errno.h>
+
 #include <arpa2/multty.h>
 
 
@@ -15,6 +19,7 @@
  * to be sure...
  */
 
+#if 0  /* OLD CODE, INT RETVAL */
 #ifdef MULTTY_MUTEX_STDOUT
 #include <pthread.h>
 // As long as only this routine writes to stdout, we can keep this mutex here
@@ -25,26 +30,49 @@ static pthread_mutex_t _multty_stdout_mutex = PTHREAD_MUTEX_INITIALIZER;
 #define MULTTY_STDOUT_MUTEX_LOCK()
 #define MULTTY_STDOUT_MUTEX_UNLOCK()
 #endif
+#endif
 
 
 /* INTERNAL ROUTINE for sending literaly bytes from an iovec
  * array to stdout.  This is used after composing a complete
  * structure intended to be sent.
  *
- * This is heavily subject to the frivolity of POSIX specs
- * concerning atomicity.  On the one hand, it is said that
- * pwritev() is atomic, but on the other hand it is said
- * not to be an error when writes are partial.  For this
- * reason, we may define MULTTY_MUTEX_STDOUT and have mutex
- * locks around our access to stdout, while hoping that no
- * other senders attempt to do the same at the same time.
- * Those others however, may be other programs who hold a
- * duplicate of the file descriptor, which we cannot fix.
+ * The primary function here is to send atomically, to
+ * avoid one structure getting intertwined with another.
+ * This is necessary for security and general correctness.
+ * This requirement imposes a PIPE_BUF as maximum for len.
  *
- * Returns the number of bytes written, which ought to be
- * the same as the len parameter, which is expected to hold
- * the total of all iov[0..ioc-1].  Or returns -1/errno.
+ * Stream output should be sent such that it returns to
+ * the default stream within the atomic unit, which is
+ * established through a file buffering scheme.
+ *
+ * Returns true on succes, or false/errno.  Specifically
+ * note EMSGSIZE, which is returned when the message is
+ * too large (the limit is PIPE_BUF).  This might occur
+ * when writing "<SOH>id<US>very_long_description<XXX>"
+ * or similar constructs that user input inside an atom.
+ * It may then be possible to send "<SOH>id<US><XXX>".
  */
+bool mtyv_out (int len, int ioc, const struct iovec *iov) {
+	if (len > PIPE_BUF) {
+		errno = EMSGSIZE;
+		return false;
+	}
+	ssize_t out = writev (1, iov, ioc);
+	if (out < 0) {
+		return false;
+	} else if (out != len) {
+		/* Inconsistency! refuse to do anything more */
+		close (1);
+		errno = ECONNABORTED;
+		return false;
+	} else {
+		return true;
+	}
+}
+
+
+#if 0  /* OLD CODE, INT RETVAL */
 int mtyv_out (int len, int ioc, const struct iovec *iov) {
 	int retval = 0;
 	size_t ofs = 0;
@@ -66,4 +94,5 @@ int mtyv_out (int len, int ioc, const struct iovec *iov) {
 	MULTTY_STDOUT_MUTEX_UNLOCK ();
 	return retval;
 }
+#endif
 

@@ -41,6 +41,33 @@ bool mtyescapewish (uint32_t style, char ch) {
 }
 
 
+/* Check that a character sequence is free from the wish to
+ * escape any of its characters, under the given style.
+ * This may be used to assure that inserts that end up in
+ * mulTTY structures have no confusing characters.
+ *
+ * As an example, "<SOH>id<US>tralala<XXX>" strings might
+ * be constrained to have no control characters in id, and
+ * only ASCII including high-top-bit in tralala.  This
+ * should not constrain proper use cases, but it could not
+ * be abused to hijack mulTTY streams.  The difference
+ * would be made with the escape style parameter, set to
+ * MULTTY_ESC_BINARY for the id and MULTTY_ESC_ASCII for
+ * tralala.  The latter could include <CR><LF> and so on,
+ * which have no place in binary content, but neither has
+ * a place for embedded <DLE> or <SOH> characters to avoid
+ * accidentally or malicuously overtaking <US> or <XXX>.
+ */
+bool mtyescapefree (uint32_t style, char *ptr, int len) {
+	while (len-- > 0) {
+		if (mtyescapewish (style, *ptr++)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+
 /* Escape a string and move it into the indicated MULTTY buffer.
  * The escaping style is provided as a parameter.
  *
@@ -58,23 +85,25 @@ bool mtyescapewish (uint32_t style, char ch) {
  */
 size_t mtyescape (uint32_t style, MULTTY *mty, const uint8_t *ptr, size_t len) {
 	size_t done = 0;
-	int pos = mty->iov[1].iov_len;
 	while (len-- > 0) {
+		//
+		// Try to find the room for one more character
 		char c = *ptr++;
 		bool esc = mtyescapewish (style, c);
-		if (pos + (esc ? 2 : 1) >= sizeof (mty->buf)) {
+		if (mty->fill + (esc ? 2 : 1) >= sizeof (mty->buf)) {
 			goto stophere;
 		}
+		//
+		// Given the room, place the extra character in the buffer
 		if (esc) {
-			mty->buf [pos++] = c_DLE;
-			mty->buf [pos++] = c ^ 0x40;
+			mty->buf [mty->fill++] = c_DLE;
+			mty->buf [mty->fill++] = c ^ 0x40;
 		} else {
-			mty->buf [pos++] = c;
+			mty->buf [mty->fill++] = c;
 		}
 		done++;
 	}
 stophere:
-	mty->iov[1].iov_len += done;
 	return done;
 }
 

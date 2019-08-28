@@ -3,7 +3,6 @@
  * TODO: Currently, mixing of multiplexing with streams is not safe.
  * There are cross-influences that disrupt their orthogonality:
  *  - streams can only write when their program is current
- *  - control sequences for streams and programs may interfere
  *  - both streams and programs use the <SOH> prefix
  *
  * From: Rick van Rein <rick@openfortress.nl>
@@ -21,14 +20,17 @@
  *
  * This is not a user command, it is intended for mulTTY internals.
  *
+ * The content supplied is sent atomically, which means it should
+ * not exceed PIPE_BUF.  If it does, errno is set to EMSGSIZE.
+ *
  * The raw content is supplied as a sequence of pointer and length:
  *  - uint8_t *buf
  *  - int      len
  * The number of these pairs is given by the numbufs parameter.
  *
- * This returns >=0 on success, or else -1/errno.
+ * This returns true on success, or else false/errno.
  */
-ssize_t mtyp_raw (int numbufs, ...) {
+bool mtyp_raw (int numbufs, ...) {
 	//
 	// Construct an iovec array to send
 	int totlen;

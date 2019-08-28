@@ -16,9 +16,13 @@ We essentially propose two changes:
   * Start considering TTY flows as multiplexes of one or
     more program, which carries one or more stream.
  
-  * Run TTY sessions over SCTP to simplify the different
-    streams.  This is not a strict requirement, but it
-    can simplify matters and improves concurrency.
+  * Consider TTY sessions over SOCK_SEQPACKET to keep
+    atomic chunks together in transit.  This option is
+    available for UNIX domain sockets and socketpair()
+    and for plain socket() it connects through SCTP.
+    This is not a strict requirement, but it simplifies
+    matters and improves consistency and possibly also
+    security.
 
 In addition, we want to including naming information in
 the flows, so they are self-descriptive and thus help

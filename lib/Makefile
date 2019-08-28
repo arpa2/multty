@@ -1,5 +1,10 @@
 all: libmultty.so libmulttyplex.so
 
+clean:
+	rm -f lib*.so lib*.a
+
+anew: clean all
+
 SOURCES+=close.c
 SOURCES+=escape.c
 SOURCES+=flush.c
@@ -7,6 +12,9 @@ SOURCES+=open.c
 SOURCES+=puts.c
 SOURCES+=write.c
 SOURCES+=vout.c
+SOURCES+=mtystdin.c
+SOURCES+=mtystdout.c
+SOURCES+=mtystderr.c
 
 SOURCES_PLEX+=progmkid.c
 SOURCES_PLEX+=progfind.c

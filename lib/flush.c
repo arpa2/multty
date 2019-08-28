@@ -7,31 +7,39 @@
 #include <arpa2/multty.h>
 
 
-/* Flush the MULTTY buffer to the output, using writev() to
- * ensure atomic sending, so no interrupts with other streams
- * even in a multi-threading program.
- *
- * The mty is setup with the proper iov[] describing its
- * switch from stdout, to its buffer, back to stdout.  This
- * is pretty trivial for stdout, of course, and treated in
- * more optimally than the others.
+/* Flush the MULTTY buffer to the output, using atomic
+ * sending of up to PIPE_BUF bytes, so no interrupts with
+ * other streams even in a multi-threading program.  Return
+ * to the default stream in the same PIPE_BUF atomic unit.
  *
  * The buffer is assumed to already be escaped inasfar as
- * necessary.
+ * necessary.  This is usually assured by writing into it
+ * with mtyescape()
  *
  * Drop-in replacement for fflush() with FILE changed to MULTTY.
- * Returns 0 on success, else EOF+errno.
+ * Returns 0 on success, else EOF/errno.
  */
 int mtyflush (MULTTY *mty) {
 	int retval = 0;
-	struct iovec *iov = mty->iov;
-	int ioc = mty->ioc;
-	size_t len = mty->iov[1].iov_len;
-	if (ioc == 1) {
-		iov++;
-	} else {
-		len += mty->iov[0].iov_len + mty->iov[2].iov_len;
+	struct iovec io0;
+	io0.iov_base = mty->buf;
+	io0.iov_len  = mty->fill;
+	//
+	// We need to add <SO> to mty->buf for all stream shifters
+	if (mty->shift > 0) {
+		//
+		// Append c_SO; we declared an overflow position in MULTTY
+		mty->buf [io0.iov_len++] = c_SO;
 	}
-	return mtyv_out (len, ioc, iov);
+	if (mtyv_out (io0.iov_len, 1, &io0)) {
+		//
+		// Reset to the shift prefix, not to an empty buffer
+		mty->fill = mty->shift;
+		return 0;
+	} else {
+		//
+		// Report failure just like fflush() would do it
+		return EOF;
+	}
 }
 

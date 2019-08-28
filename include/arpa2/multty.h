@@ -16,6 +16,7 @@
 #include <stdbool.h>
 #include <string.h>
 
+#include <limits.h>
 #include <unistd.h>
 #include <sys/uio.h>
 
@@ -111,12 +112,21 @@
 /* The handle structure, with builtin buffer and stream name,
  * for for a MULTTY stream.
  */
-typedef struct {
-	struct iovec iov [3];
-	int ioc;
-	uint8_t buf [1024];
-	uint8_t shift [1];  /* ...continues beyond structure */
-} MULTTY;
+struct multty {
+	int shift;
+	int fill;
+	uint8_t buf [PIPE_BUF-1];
+};
+typedef struct multty MULTTY;
+
+
+/* Standard pre-opened handles for "stdin", "stdout", "stderr".
+ * Stored in global variables that may be included.
+ */
+extern struct multty MULTTY_STDIN;
+extern struct multty MULTTY_STDOUT;
+extern struct multty MULTTY_STDERR;
+
 
 
 /* Programs are identified with a standard structure
@@ -179,6 +189,26 @@ int mtyclose (MULTTY *mty);
 bool mtyescapewish (uint32_t style, char ch);
 
 
+/* Check that a character sequence is free from the wish to
+ * escape any of its characters, under the given style.
+ * This may be used to assure that inserts that end up in
+ * mulTTY structures have no confusing characters.
+ *
+ * As an example, "<SOH>id<US>tralala<XXX>" strings might
+ * be constrained to have no control characters in id, and
+ * only ASCII including high-top-bit in tralala.  This
+ * should not constrain proper use cases, but it could not
+ * be abused to hijack mulTTY streams.  The difference
+ * would be made with the escape style parameter, set to
+ * MULTTY_ESC_BINARY for the id and MULTTY_ESC_ASCII for
+ * tralala.  The latter could include <CR><LF> and so on,
+ * which have no place in binary content, but neither has
+ * a place for embedded <DLE> or <SOH> characters to avoid
+ * accidentally or malicuously overtaking <US> or <XXX>.
+ */
+bool mtyescapefree (uint32_t style, char *ptr, int len);
+
+
 /* Escape a string and move it into the indicated MULTTY buffer.
  * The escaping style is provided as a parameter.
  *
@@ -198,11 +228,6 @@ size_t mtyescape (uint32_t style, MULTTY *mty, const uint8_t *ptr, size_t len);
 /* Flush the MULTTY buffer to the output, using writev() to
  * ensure atomic sending, so no interrupts with other streams
  * even in a multi-threading program.
- *
- * The mty is setup with the proper iov[] describing its
- * switch from stdout, to its buffer, back to stdout.  This
- * is pretty trivial for stdout, of course, and treated in
- * more optimally than the others.
  *
  * The buffer is assumed to already be escaped inasfar as
  * necessary.
@@ -295,14 +320,17 @@ MULTTY_PROG *mtyp_have (MULTTY_PROGSET *progset, const char *id, const char *opt
  *
  * This is not a user command, it is intended for mulTTY internals.
  *
+ * The content supplied is sent atomically, which means it should
+ * not exceed PIPE_BUF.  If it does, errno is set to EMSGSIZE.
+ *
  * The raw content is supplied as a sequence of pointer and length:
  *  - uint8_t *buf
  *  - int      len
  * The number of these pairs is given by the numbufs parameter.
  *
- * This returns >=0 on success, or else -1/errno.
+ * This returns true on success, or else false/errno.
  */
-ssize_t mtyp_raw (int numbufs, ...);
+bool mtyp_raw (int numbufs, ...);
 
 
 
@@ -314,17 +342,23 @@ ssize_t mtyp_raw (int numbufs, ...);
  * array to stdout.  This is used after composing a complete
  * structure intended to be sent.
  *
- * This is heavily subject to the frivolity of POSIX specs
- * concerning atomicity.  On the one hand, it is said that
- * pwritev() is atomic, but on the other hand it is said
- * not to be an error when writes are partial.  For this
- * reason, we may define MULTTY_MUTEX_STDOUT and have mutex
- * locks around our access to stdout, while hoping that no
- * other senders attempt to do the same at the same time.
- * Those others however, may be other programs who hold a
- * duplicate of the file descriptor, which we cannot fix.
+ * The primary function here is to send atomically, to
+ * avoid one structure getting intertwined with another.
+ * This is necessary for security and general correctness.
+ * This requirement imposes a PIPE_BUF as maximum for len.
+ *
+ * Stream output should be sent such that it returns to
+ * the default stream within the atomic unit, which is
+ * established through a file buffering scheme.
+ *
+ * Returns true on succes, or false/errno.  Specifically
+ * note EMSGSIZE, which is returned when the message is
+ * too large (the limit is PIPE_BUF).  This might occur
+ * when writing "<SOH>id<US>very_long_description<XXX>"
+ * or similar constructs that user input inside an atom.
+ * It may then be possible to send "<SOH>id<US><XXX>".
  */
-int mtyv_out (int len, int ioc, const struct iovec *iov);
+bool mtyv_out (int len, int ioc, const struct iovec *iov);
 
 
 

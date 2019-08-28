@@ -22,10 +22,15 @@
  * The buffer is assumed to already be escaped inasfar as
  * necessary.
  *
- * There are no default open handles.  You have to open
- * a handle for "stdout" (if you don't use puts() and co)
- * and "stdin" and "stderr" yourself.  The default place
- * of "stdin" and "stdout" is recognised in this routine.
+ * There are default handles opened for MULTTY_STDOUT and
+ * MULTTY_STDIN and MULTTY_STDERR.  Note that "stderr" is
+ * in no way special because it is just a named stream,
+ * but "stdout" and "stdin" are default streams and need
+ * no stream shifting because we return to it after all
+ * other writes and reads.  If you open "stdout" and
+ * "stdin" here you do get them with the explicit stream
+ * shift, which is harmless and actually necessary when
+ * not all other uses return to the default stream.
  *
  * Drop-in replacement for fopen() with FILE changed to MULTTY.
  * Returns a handle on success, else NULL+errno.
@@ -38,23 +43,14 @@ MULTTY *mtyopen (const char *streamname, const char *mode) {
 		return NULL;
 	}
 	int nmlen = strlen (streamname);
-	mty->shift [0      ] = c_SOH;
-	mty->shift [1+nmlen] = c_SO ;
-	memcpy (mty->shift+1, streamname, nmlen);
-	if ((strcmp (streamname, "stdin" ) == 0) ||
-	    (strcmp (streamname, "stdout") == 0)    ) {
-		/* Skip first and last elements */
-		mty->ioc = 1;
-	} else {
-		mty->ioc = 3;
-		mty->iov[0].iov_base = mty->shift;
-		mty->iov[2].iov_base = mty->shift + 1 + nmlen;
-		mty->iov[0].iov_len  = 2+nmlen;
-		mty->iov[2].iov_len  = 1;
-	}
-	/* The buffer itself is always in mty->iov[1] */
-	mty->iov[1].iov_base = mty->buf;
-	mty->iov[1].iov_len  = 0;
+	/* Insert a shift statement at the start */
+	/* Note: MULTTY_STDOUT and MULTTY_STDIN don't have this */
+	mty->buf [0] = c_SOH;
+	memcpy (mty->buf + 1, streamname, nmlen);
+	mty->buf [1 + nmlen] = c_SO;
+	mty->shift = 2 + nmlen;
+	/* Always start buffer filling after the shift */
+	mty->fill = mty->shift;
 	/* Return the successfully filled handle */
 	return mty;
 }
