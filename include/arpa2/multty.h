@@ -146,7 +146,9 @@ struct multty {
 	MULTTY_PROG *prog;
 	int shift;
 	int fill;
-	uint8_t buf [PIPE_BUF-1]; uint8_t buf_overrun_SO;
+	int rdofs;
+	uint8_t buf [PIPE_BUF];
+	bool got_dle;
 };
 typedef struct multty MULTTY;
 
@@ -329,6 +331,102 @@ inline int mtyputs (const char *s, MULTTY *mty) {
  */
 ssize_t mtywrite (MULTTY *mty, const void *buf, size_t count);
 
+
+
+/********** FUNCTIONS FOR STREAM READER DISPATCH **********/
+
+
+
+/* When ASCII data is ready for dispatch, a callback is
+ * triggered, to be used in an event loop for future
+ * processing.  The buffer is not yet unescaped, and
+ * asking for this to be done with the right profile
+ * is part of the task of the callback.
+ *
+ * The callback is not free to defer the extraction.
+ * It is especially not in a position to wait for more
+ * input, for instance to complete an ASCII structure
+ * that was read only partially, as that may be the
+ * result of stream switching or program multiplexing
+ * and the other traffic also needs to get through.
+ *
+ * Note that dangling <DLE> characters are cared for
+ * in the unescape routines, but your application
+ * structures may need to be manually dealt with.
+ *
+ * When an <SOH> is encountered, it is delivered as
+ * a naming prefix for a new callback invocation,
+ * with a length and the following control code.
+ * Without <SOH>, name is NULL, namelen is -1 and
+ * control is <NUL>.  No <SOH> should be expected
+ * midway a fragment provided through mtycb_ready().
+ * Note that some of the <SOH> are consumed by the
+ * dispatcher, namely to distinguish streams named
+ * before <SO> or <SI> shifting.
+ *
+ * Control codes <SO> or <SI> may be delivered if
+ * they imply a change to the stream's shift status,
+ * which is initially set as though <SO> was issued.
+ *
+ * Callbacks are registered with a MULTTY, together with
+ * a userdata pointer reproduced here.
+ */
+typedef void mtycb_ready (MULTTY *mty, void *userdata,
+		char *name, int namelen, uint8_t control);
+
+
+/* Register a callback function with a MULTTY handle,
+ * possibly replacing the previous setting.  The new
+ * setting may be NULL to forget the callback.
+ *
+ * Along with the callback function, a userdata pointer
+ * may be registered and this will be provided alongside
+ * the callback.
+ */
+void mtyregister_ready (MULTTY *mty, mtycb_ready *rdy, void *userdata);
+
+
+/* Extract escaped data from a MULTTY handle, and place
+ * it in the given buffer.  The return value is the
+ * number of bytes actually retrieved.  The size of the
+ * destination is never more than the size of the source.
+ *
+ * The destination will not be filled with mulTTY codes
+ * for stream switching or program multiplexing.  Future
+ * releases will support delegation of these facilities,
+ * which may lead to more variety in what is internal.
+ * 
+ * Inasfar as control codes are used as stream-internal
+ * separators they will be kept.  As a consequence, the
+ * <SOH> naming before stream switching and program
+ * multiplexing is kept internally, but the <SO> or <SI>
+ * control codes at the end of stream switches are
+ * passed when they change the stream's shift status.
+ *
+ * Since <SOH> naming prefixes may serve many uses, it
+ * is always taken out and delivered as the beginning
+ * of a separate callback operatior.  In other words,
+ * this operation does not pass in <SOH> fragments,
+ * unless these result from escaping, of course.
+ *
+ * TODO: Consider additional checking of input:
+ *  - removing  NUL characters (if they were escaped)
+ *  - rejecting IAC characters
+ *  - rejecting DLE before unexpected codes
+ *  - rejecting DLE before impossible codes
+ */
+int mtyunescape (uint32_t escstyle, MULTTY *mty,
+		uint8_t *dest, int destlen);
+
+
+/* Given the number of bytes to be extracted from the
+ * MULTTY handle, assuming it is stable at this time.
+ * This is the number of bytes that will be delivered
+ * by mtyunescape() if the destlen is high enough.
+ * When less is delivered, a further read will provide
+ * the remaining bytes.
+ */
+int mtyinputsize (uint32_t escstyle, MULTTY *mty);
 
 
 /********** FUNCTIONS FOR PROGRAM MULTIPLEXING **********/

@@ -90,7 +90,7 @@ size_t mtyescape (uint32_t style, MULTTY *mty, const uint8_t *ptr, size_t len) {
 		// Try to find the room for one more character
 		uint8_t c = *ptr++;
 		bool esc = mtyescapewish (style, c);
-		if (mty->fill + (esc ? 2 : 1) >= sizeof (mty->buf)) {
+		if (mty->fill + (esc ? 2 : 1) >= sizeof (mty->buf) - 1) {
 			goto stophere;
 		}
 		//

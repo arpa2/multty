@@ -6,6 +6,7 @@ clean:
 anew: clean all
 
 SOURCES+=close.c
+SOURCES+=unescape.c
 SOURCES+=escape.c
 SOURCES+=flush.c
 SOURCES+=open.c

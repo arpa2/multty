@@ -115,8 +115,8 @@ there could be confusion to interpret a character
 in a string as an unintended control code, it
 should be escaped with `<DLE>`.  This is not needed
 for `<LF>` and `<ESC>`, but it is useful for the
-other control codes used here: `<TAB>`, `<SOH>`,
-`<US>`, `<FS>`, `<GS>`, `<RS>`, `<HT>` and of course the
+other control codes used here: `<SOH>`,
+`<US>`, `<FS>`, `<GS>`, `<RS>`, `<SUB>` and of course the
 other codes defined in the
 [mulTTY specification](ASCII.MD).
 
@@ -140,11 +140,16 @@ The values in a list or record are separated by a
 record separator `<RS>` control code.
 
 When a last element in a list has too many options,
-it may be entered as `<HT>` or a form holding `<HT>`
+it may be entered as `<SUB>` or a form holding `<SUB>`
 and thereby suggest to ask for completion if that
 option is considered.  This may lead to any number
 of additional list elements, no added element
-being one possible option.
+being one possible option.  (We use `<SUB>` instead
+of the customarily types `<HT>` because the latter
+might occur in actual text, whereas `<SUB>` never
+is; it is a last-minute control code to substitute
+an unknown character inserted just prior to rendering
+and should not ever be entered as input.)
 
 
 ### Lists of Alternatives in ASCII
@@ -163,17 +168,17 @@ empty final form.
 ## Data Completion
 
 To complete a field, its definition is sent in
-part to `stdctl` with a `<HT>` control at the end
+part to `stdctl` with a `<SUB>` control at the end
 of the computer-friendly name.
 
 This control may well have been included in the
 original form, even at its very beginning, to
 indicate the possibility of asking for it.  The
-`<HT>` control would then precede the `<US>` control.
-The response would use the name with the `<HT>`
+`<SUB>` control would then precede the `<US>` control.
+The response would use the name with the `<SUB>`
 control included in the name to indicate that it
 is a completion table.  It may also add a few
-characters after `<HT>` that are certain to go
+characters after `<SUB>` that are certain to go
 there, and the remaining list contains all
 further extensions excluding the already-found
 naming, so the list might include an empty string.

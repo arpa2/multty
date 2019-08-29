@@ -59,6 +59,9 @@ MULTTY *mtyopen (const char *streamname, const char *mode) {
 	mty->shift = 2 + nmlen;
 	/* Always start buffer filling after the shift */
 	mty->fill = mty->shift;
+	/* Setup for reading as well */
+	mty->got_dle = false;
+	mty->rdofs = 0;
 	/* Return the successfully filled handle */
 	return mty;
 }
