@@ -95,11 +95,25 @@
  * barely used in normal ASCII disciplines anyway).  Finally, if
  * content is aware of mulTTY already, it bypasses escaping.
  *
+ * The use of ASCII is practical for readability, but it might
+ * cause changes to binary codes, especially <NUL> which may be
+ * removed at will, or added at will while not being recognised
+ * as such, and <IAC> which would impair the ability to pass it
+ * over Telnet, which is a source for a port number quit suitable
+ * for mulTTY and already standardised and abandoned.  So we add
+ * a MIXED escaping discipline that solves these problems, to
+ * pass everyday ASCII as is, but protect <NUL> and <IAC> while
+ * always escaping the codes that might be confused for mulTTY
+ * control codes.  Where we use strings or string buffers within
+ * mulTTY markup, we always use the MIXED discipline.
+ *
  * Escaping is NOT idempotent, because <DLE> gets escaped.  The
  * only algebraic nicety is the mulTTY escaping is a zero, both
  * left-sided and right-sided.  But even that is not guaranteed
  * to hold true in the future.  Do not escape upon escape unless
  * you plan to reverse it with unescape after unescape.
+ *
+ * TODO: Consider including 0x00 into ASCII
  */
 #define MULTTY_ESC_MULTTY ((uint32_t) 0x00000000)
 #define MULTTY_ESC_BINARY ((uint32_t) 0xffffffff)
@@ -107,6 +121,7 @@
 	(1<< 3)|(1<< 4)|(1<< 5)|(1<< 6)|(1<<16)|(1<<17)| \
 	(1<<18)|(1<<19)|(1<<20)|(1<<21)|(1<<22)|(1<<23)| \
 	(1<<24)|(1<<25)|(1<<28)|(1<<29)|(1<<30)|(1<<31)) )
+#define MULTTY_ESC_MIXED  ((uint32_t) ( (1<<0) | MULTTY_ESC_ASCII ))
 
 
 /* Programs are identified with a standard structure

@@ -14,7 +14,7 @@
 /* Describe a program with a new string.  This
  * includes a test whether the string contains
  * only passable ASCII content, so no control codes
- * that could confuse mulTTY.
+ * that could confuse mulTTY or ASCII passing.
  *
  * Note that setting a description is only welcome
  * if it was opened to have one.
@@ -22,7 +22,7 @@
  * Returns true on success, or else false/errno.
  */
 bool mtyp_describe (MULTTY_PROG *prog, const char *descr) {
-	if ((descr == NULL) || !mtyescapefree (MULTTY_ESC_ASCII, descr, strlen (descr))) {
+	if ((descr == NULL) || !mtyescapefree (MULTTY_ESC_MIXED, descr, strlen (descr))) {
 		errno = EINVAL;
 		return NULL;
 	}

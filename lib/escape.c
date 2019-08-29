@@ -52,7 +52,7 @@ bool mtyescapewish (uint32_t style, uint8_t ch) {
  * should not constrain proper use cases, but it could not
  * be abused to hijack mulTTY streams.  The difference
  * would be made with the escape style parameter, set to
- * MULTTY_ESC_BINARY for the id and MULTTY_ESC_ASCII for
+ * MULTTY_ESC_BINARY for the id and MULTTY_ESC_MIXED for
  * tralala.  The latter could include <CR><LF> and so on,
  * which have no place in binary content, but neither has
  * a place for embedded <DLE> or <SOH> characters to avoid

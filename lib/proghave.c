@@ -28,7 +28,7 @@
 MULTTY_PROG *mtyp_have (MULTTY_PROGSET *progset, const MULTTY_PROGID id_us, const char *opt_descr) {
 	//
 	// Any opt_descr provided must be free from ASCII escapables
-	if ((opt_descr != NULL) && !mtyescapefree (MULTTY_ESC_ASCII, opt_descr, strlen (opt_descr))) {
+	if ((opt_descr != NULL) && !mtyescapefree (MULTTY_ESC_MIXED, opt_descr, strlen (opt_descr))) {
 		errno = EINVAL;
 		return NULL;
 	}

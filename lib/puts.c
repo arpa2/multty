@@ -19,7 +19,7 @@
 
 
 /* Send an ASCII string buffer to the given mulTTY stream.
- * Since it is ASCII, it will be escaped as seen fit.
+ * Since it is mostly ASCII, it uses MIXED escaping displine.
  *
  * Return true on success, else false/errno.
  */
@@ -27,7 +27,7 @@ bool mtyputstrbuf (MULTTY *mty, const char *strbuf, int buflen) {
 	int retval = 0;
 	int esclen;
 	while (buflen > 0) {
-		esclen = mtyescape (MULTTY_ESC_ASCII, mty, strbuf, buflen);
+		esclen = mtyescape (MULTTY_ESC_MIXED, mty, strbuf, buflen);
 		strbuf += esclen;
 		buflen -= esclen;
 		if (mtyflush (mty) != 0) {
