@@ -429,6 +429,57 @@ int mtyunescape (uint32_t escstyle, MULTTY *mty,
 int mtyinputsize (uint32_t escstyle, MULTTY *mty);
 
 
+/* Given input bytes, dispatch as much of it as
+ * possible between the streams of one program.
+ * Program switches are not accepted by this
+ * function, and lead to a buffer being returned.
+ *
+ * The MULTTY provided is the first in the list
+ * for a given program.  This routine itself is
+ * not aware of program multiplexing.
+ *
+ * If the input stream is blocking, then this call
+ * is also blocking.
+ *
+ * Returns false when unprocessed program switching
+ * input is waiting to be further processed, or true
+ * when it could all be processed as stream input.
+ */
+bool mtydispatch_internal (MULTTY *mtylist);
+
+
+/* Read the input stream and dispatch its data over
+ * streams which each receive their own chunks.
+ * Dispatched chunks end when <SOH> is encountered,
+ * as that may introduce a switch of a [program or]
+ * stream.  As soon as a program switch is found,
+ * the dispatcher also ends.
+ *
+ * This is a simple wrapper around mtydispatch that
+ * rejects input with program multiplexing commands.
+ *
+ * If the input stream is blocking, then this call
+ * is also blocking.
+ */
+void mtydispatch_streams (void);
+
+
+/* Read the input stream and dispatch data across
+ * programs and their streams.  Initially, the data
+ * is supplied to the current program; but if its
+ * dispatcher runs into a program switch it returns
+ * for further processing in another program.
+ *
+ * This is an iterative wrapper around mtydispatch
+ * that relays input with program multiplexing commands.
+ *
+ * If the input stream is blocking, then this call
+ * is also blocking.
+ */
+void mtydispatch_programs (void);
+
+
+
 /********** FUNCTIONS FOR PROGRAM MULTIPLEXING **********/
 
 
