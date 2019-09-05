@@ -9,10 +9,9 @@
 #include <errno.h>
 
 
-/* Open an MULTTY buffer for input ("r") or output ("w")
- * and using the given stream name.  TODO: Currently the
- * mode "r" / "w" is not used.  TODO: Output is always
- * shift-out based, using `<SO>` ASCII, not `<SI>`.
+/* Open an MULTTY stream for output under the given stream
+ * name.  TODO: Output is always shift-out based, using
+ * `<SO>` ASCII, not `<SI>`.
  *
  * The mty is setup with the proper iov[] describing its
  * switch from stdout, to its buffer, back to stdout.  This
@@ -39,7 +38,7 @@
  * Drop-in replacement for fopen() with FILE changed to MULTTY.
  * Returns a handle on success, else NULL/errno.
  */
-MULTTY *mtyopen (const char *streamname, const char *mode) {
+MULTTY *mtyoutstream (const char *streamname) {
 	int nmlen = strlen (streamname);
 	if (!mtyescapefree (MULTTY_ESC_BINARY, streamname, nmlen)) {
 		errno = EINVAL;
@@ -50,7 +49,7 @@ MULTTY *mtyopen (const char *streamname, const char *mode) {
 		errno = ENOMEM;
 		return NULL;
 	}
-	mty->prog = NULL;
+	memset (mty, 0, sizeof (MULTTY));
 	/* Insert a shift statement at the start */
 	/* Note: MULTTY_STDOUT and MULTTY_STDIN don't have this */
 	mty->buf [0] = c_SOH;

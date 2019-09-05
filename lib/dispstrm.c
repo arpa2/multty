@@ -12,6 +12,8 @@
 #include <arpa2/multty.h>
 
 
+#ifndef MULTTY_MIXED
+
 /* Read the input stream and dispatch its data over
  * streams which each receive their own chunks.
  * Dispatched chunks end when <SOH> is encountered,
@@ -25,7 +27,9 @@
  * If the input stream is blocking, then this call
  * is also blocking.
  */
-void mtydispatch_streams (void) {
-	assert (mtydispatch_intern ());
+void mtydispatch_streams (MULTTY *current) {
+	assert (mtydispatch_internal (current));
 }
+
+#endif
 

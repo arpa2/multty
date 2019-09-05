@@ -113,7 +113,7 @@
  * to hold true in the future.  Do not escape upon escape unless
  * you plan to reverse it with unescape after unescape.
  *
- * TODO: Consider including 0x00 into ASCII
+ * TODO: No ASCII confusion from 2,3,4,5,6 and 21,22,23,24 and 28,29,30,31 until they are used in streams
  */
 #define MULTTY_ESC_MULTTY ((uint32_t) 0x00000000)
 #define MULTTY_ESC_BINARY ((uint32_t) 0xffffffff)
@@ -143,6 +143,7 @@ typedef struct multty_prog    MULTTY_PROG   ;
  * for for a MULTTY stream.
  */
 struct multty {
+	struct multty *next;
 	MULTTY_PROG *prog;
 	int shift;
 	int fill;
@@ -151,6 +152,13 @@ struct multty {
 	bool got_dle;
 };
 typedef struct multty MULTTY;
+
+
+/* The input flow structure, over which multiplexed traffic
+ * arrives, and from which it is split into programs and/or
+ * streams.
+ */
+typedef struct multty_inflow MULTTY_INFLOW;
 
 
 /* Standard pre-opened handles for "stdin", "stdout", "stderr".
@@ -292,12 +300,12 @@ int mtyflush (MULTTY *mty);
  *
  * The streamname must be free from any control codes or
  * other aspects that would incur MULTTY_ESC_BINARY, or
- * else mtyopen() returns NULL/EINVAL.
+ * else mtyoutstream() returns NULL/EINVAL.
  *
  * Drop-in replacement for fopen() with FILE changed to MULTTY.
  * Returns a handle on success, else NULL+errno.
  */
-MULTTY *mtyopen (const char *streamname, const char *mode);
+MULTTY *mtyoutstream (const char *streamname);
 
 
 /* Send an ASCII string buffer to the given mulTTY stream.
@@ -330,6 +338,13 @@ inline int mtyputs (const char *s, MULTTY *mty) {
  * Returns buf-bytes written on success, else -1&errno
  */
 ssize_t mtywrite (MULTTY *mty, const void *buf, size_t count);
+
+
+/* Open an inflow for a given file descriptor.
+ *
+ * Returns non-NULL pointer or NULL/errno.
+ */
+MULTTY_INFLOW *mtyinflow (int infd);
 
 
 
@@ -375,15 +390,30 @@ typedef void mtycb_ready (MULTTY *mty, void *userdata,
 		char *name, int namelen, uint8_t control);
 
 
-/* Register a callback function with a MULTTY handle,
- * possibly replacing the previous setting.  The new
- * setting may be NULL to forget the callback.
+/* Register a callback function with arbitrary userdata
+ * pointer, to be invoked when data arrives for the
+ * named stream at the given inflow.
  *
- * Along with the callback function, a userdata pointer
- * may be registered and this will be provided alongside
- * the callback.
+ * The inflow may be NULL to reference the MULTTY_STDIN
+ * default.
+ *
+ * The stream name may be NULL to indicate the default
+ * stream, which may be compared to stdin/stdout.  The
+ * name is assumed to be a static string.
+ *
+ * The callback function may be NULL to indicate that
+ * the previously registered function is to stop being
+ * called.  This may involve the cleanup of the stream
+ * from the inflow (when it is not the default), though
+ * that may also be deferred until inflow cleanup.
+ *
+ * The userdata is passed whenever the callback function
+ * is invoked; this also happens when it is NULL.
+ *
+ * Return true on success, else false/errno
  */
-void mtyregister_ready (MULTTY *mty, mtycb_ready *rdy, void *userdata);
+bool mtyregister_ready (MULTTY_INFLOW *flow, char *stream,
+			mtycb_ready *rdy, void *userdata);
 
 
 /* Extract escaped data from a MULTTY handle, and place
@@ -445,7 +475,7 @@ int mtyinputsize (uint32_t escstyle, MULTTY *mty);
  * input is waiting to be further processed, or true
  * when it could all be processed as stream input.
  */
-bool mtydispatch_internal (MULTTY *mtylist);
+bool mtydispatch_internal (MULTTY *current);
 
 
 /* Read the input stream and dispatch its data over
@@ -461,7 +491,7 @@ bool mtydispatch_internal (MULTTY *mtylist);
  * If the input stream is blocking, then this call
  * is also blocking.
  */
-void mtydispatch_streams (void);
+void mtydispatch_streams (MULTTY *current);
 
 
 /* Read the input stream and dispatch data across

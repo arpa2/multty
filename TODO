@@ -1,10 +1,17 @@
-- parsing and reading a mulTTY connection; event-style with callbacks
++ parsing and reading a mulTTY connection; event-style with callbacks
 + multiplexer switching between programs in the same program set
 - multiplexer switching to parent and child program sets
 - multiplexer switching to some program, crossing over program sets
+- multiplexer validator: count (PUP) <= count (PDN) for every inflow
 + dependency-free integration of multiplexer switching during mtyflush()
 - nested multiplexer operation -- passing through child multiplexers
 - nested demultiplexer -- all levels in one demultiplexer
 - nested demultiplexer -- with cut-off for pass-through
 - local PIPE_BUF --> static/checked ATOMIC_SEND_MAX and ATOMIC_RECV_MIN
 - independent mulTTY connections?  [like in SCTP streams]
+- combine "stdin" + "stdout" into one stream, "stdio" or "stdtty"
+- merge input/output streams in STREAMS.MD and mention sender/receiver
+X consider mulTTY as a SASL service?  No, Quick SASL has a better API
+- Multiplexer could hang peer under local; nest separately per peer
+- Telnet options get WON'T and DON'T; mulTTY connector escapes 0xff
+- RFC 856, Telnet option 0 for TRANSMIT-BINARY; still escape 0xff

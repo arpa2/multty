@@ -16,6 +16,20 @@
 
 #include <arpa2/multty.h>
 
+#ifdef MULTTY_MIXED
+#incude "mtyp-int.h"
+#endif
+
+
+struct multty_instream {
+	char *name;
+	struct multty_instream *next;
+	void (*cb_ready) ();
+	void *cb_userdata;
+	uint8_t shiftctl;
+};
+typedef struct multty_instream MULTTY_INSTREAM;
+
 
 struct multty_inflow {
 	int infd;
@@ -25,25 +39,55 @@ struct multty_inflow {
 	int rdend;	/* where reading stopped */
 	int prenm;	/* points at name start, or is -1 */
 	int postnm;	/* points at control beyond name, or 0 */
+	int usofs;	/* points at optional <US> in name, or is 0 */
 #ifdef MULTTY_MIXED
-	TODO_CURRENT_PROGRAMSET;
-	TODO_CURRENT_PROGRAM;
-#define input_streams  TODO_VIA_CURRENT_PROGRAM
-#define current_stream TODO_VIA_CURRENT_PROGRAM
+	MULTTY_PROG *curprog;
+#define default_stream curprog->TODO_INPUT_STREAM_LIST
+#define current_stream curprog->TODO_CURRENT_INPUT_STREAM
 #else
-	MULTTY *input_streams;
-	MULTTY *current_stream;
+	MULTTY_INSTREAM  default_stream;
+	MULTTY_INSTREAM *current_stream;
 #endif
 };
-typedef struct multty_inflow inflow_t;
+typedef struct multty_inflow MULTTY_INFLOW;
+
+
+/* Open an inflow for a given file descriptor.
+ *
+ * Returns non-NULL pointer or NULL/errno.
+ */
+MULTTY_INFLOW *mtyinflow (int infd) {
+	if (infd < 0) {
+		errno = EINVAL;
+		return NULL;
+	}
+	MULTTY_INFLOW *retval = malloc (sizeof (MULTTY_INFLOW));
+	if (retval == NULL) {
+		errno = ENOMEM;
+		return NULL;
+	}
+	memset (retval, 0, sizeof (MULTTY_INFLOW));
+	retval->infd = infd;
+	retval->prenm = -1;
+	return retval;
+}
+
+
+/* Close an inflow.
+ */
+void mtyinflow_close (MULTTY_INFLOW *flow) {
+	"TODO_CLOSE";
+	free (flow);
+}
 
 
 /* Reset the inflow to prepare it to process the next chunk.
  * This also enables pushing back content upon next read.
  */
-static void _mty_reset_inflow (inflow_t *flow) {
+static void _mty_reset_inflow (MULTTY_INFLOW *flow) {
 	flow->prenm = -1;
 	flow->postnm = 0;
+	flow->usofs = 0;
 	flow->rdofs = flow->rdend;
 }
 
@@ -51,7 +95,7 @@ static void _mty_reset_inflow (inflow_t *flow) {
 /* Remove togo characters at ofs in flow->buf.
  * Update flow->wrofs.
  */
-static void _mty_cutback (inflow_t *flow, int ofs, int togo) {
+static void _mty_cutback (MULTTY_INFLOW *flow, int ofs, int togo) {
 	//TODO// if (flow->prenm >= 0) { ...syslog..."ignored <SOH> name prefix"... }
 	if (flow->wrofs > ofs+togo) {
 		memmove (flow->buf+ofs, flow->buf+ofs+togo, flow->wrofs-ofs-togo);
@@ -64,7 +108,7 @@ static void _mty_cutback (inflow_t *flow, int ofs, int togo) {
  *
  * Returns true on success, or false/errno.
  */
-static bool _mty_readmore (inflow_t *flow) {
+static bool _mty_readmore (MULTTY_INFLOW *flow) {
 	//
 	// Push back the memory buffer
 	//TODO// We can probably cut back if prenm==-1 too
@@ -93,8 +137,9 @@ static bool _mty_readmore (inflow_t *flow) {
 
 
 /* Report a bad character by position (may be <DLE> prefixed).
+ * Return the number of characters that would have to be skipped.
  */
-static void _mty_badchar (inflow_t *flow, int badpos) {
+static int _mty_badchar (MULTTY_INFLOW *flow, int badpos) {
 	//
 	// Log an error
 	int badlen = (flow->buf [badpos] == c_DLE) ? 2 : 1;
@@ -103,6 +148,7 @@ static void _mty_badchar (inflow_t *flow, int badpos) {
 	} else {
 		syslog (LOG_ERR, "Bad character 0x%02x in mulTTY input\n", flow->buf [badpos]);
 	}
+	return badlen;
 }
 
 
@@ -111,7 +157,7 @@ static void _mty_badchar (inflow_t *flow, int badpos) {
  * Return true when sufficient information was available, false to defer.
  * The value flow->postnm is not set if false is returned.
  */
-static bool _mty_getname (inflow_t *flow) {
+static bool _mty_getname (MULTTY_INFLOW *flow) {
 	//
 	// We do need to see the first character
 	if (flow->wrofs <= flow->rdofs) {
@@ -134,6 +180,7 @@ static bool _mty_getname (inflow_t *flow) {
 		if ((c == c_US) && (phase == 0)) {
 			//
 			// This character is <US> for the next phase of the name
+			flow->usofs = i - 1;
 			phase++;
 		} else if (mtyescapewish (ctl_no_us [phase], flow->buf [i])) {
 			//
@@ -141,6 +188,9 @@ static bool _mty_getname (inflow_t *flow) {
 			// (Before <US> be really tight; after, avoid mulTTY confusion)
 			flow->prenm = flow->rdofs + 1;
 			flow->postnm = i - 1;
+			if (phase == 0) {
+				flow->usofs = 0;
+			}
 			return true;
 		}
 	}
@@ -170,7 +220,7 @@ static bool _mty_getname (inflow_t *flow) {
  * wait for additional input and try again.  Locally detected
  * bad characters will be repaired with _mty_badchar().
  */
-static bool _myt_appstring (inflow_t *flow) {
+static bool _mty_appstring (MULTTY_INFLOW *flow) {
 	int pos = flow->postnm;
 	int retval = 0;
 	uint8_t c, c2;
@@ -234,38 +284,95 @@ static bool _myt_appstring (inflow_t *flow) {
 }
 
 
-/* Handle application byte sequence by callback invocation.
+/* Look for the input stream, by name or, if that is NULL,
+ * by returning the default.  When opt_namelen<0 it will
+ * be determined with strlen(), otherwise it is considered
+ * an actual string length.
+ *
+ * TODO: Flag to bypass creation if not found?
+ *
+ * Returns the stream if it exists, else NULL/errno=ENOENT.
+ * Errors are ENOMEM for allocation error or (TODO)
  */
-static void _mty_appcb (inflow_t *flow) {
-	//
-	// Prepare name, nmlen, ctl parameters
-	char *name = NULL;
-	int nmlen = flow->postnm - 1;
-	uint8_t ctl = flow->buf [nmlen];
-	if (mtyescapewish (MULTTY_ESC_BINARY, ctl)) {
+static MULTTY_INSTREAM *_mty_instream_byname (MULTTY_INFLOW *flow,
+			char *opt_name, int opt_namelen) {
+	MULTTY_INSTREAM *instream = &flow->default_stream;
+	bool notfound = (opt_name != NULL);
+	if (notfound && (opt_namelen < 0)) {
+		opt_namelen = strlen (opt_name);
+	}
+	while (notfound && (instream != NULL)) {
+		instream = instream->next;
+		notfound = (strncmp (instream->name, opt_name, opt_namelen) != 0)
+				|| (instream->name [opt_namelen] != '\0');
+	}
+	if (notfound) {
+		errno = ENOENT;
+	}
+	return instream;
+}
+
+
+/* Look for the input stream, named as in the flow, and otherwise
+ * the current stream.  Update the current stream if one by its
+ * name is found.
+ *
+ * If it does not exist yet, create a new instream with the name.
+ */
+static MULTTY_INSTREAM *_mty_instream (MULTTY_INFLOW *flow) {
+	MULTTY_INSTREAM *retval;
+	if (flow->prenm == -1) {
 		//
-		// Interesting ctl; possibly interesting name
-		if (nmlen >= 0) {
-			name = flow->buf + 1;
-		}
+		// Assume the current stream as unnamed default
+		retval = flow->current_stream;
 	} else {
 		//
-		// No interesting ctl; set it to <NUL>
-		ctl = c_NUL;
+		// We have a name, so we should look for it
+		int nmlen, nmlen_max;
+		if (flow->usofs > 0) {
+			nmlen = flow->usofs  - flow->prenm;
+			nmlen_max = 33;
+		} else {
+			nmlen = flow->postnm -  flow->prenm;
+			nmlen_max = 32;
+		}
+		//
+		// Limit the name to 32 identifying characters
+		// of accept <US> for an extra length of 33.
+		if (nmlen > nmlen_max) {
+			//
+			// <US> lies too far off, stick to 32
+			nmlen = 32;
+		}
+		//
+		// Use the name to locate a stream
+		retval = _mty_instream_byname (flow, flow->buf + flow->prenm, nmlen);
+		if (retval != NULL) {
+			flow->current_stream = retval;
+		}
+	}
+	return retval;
+}
+
+
+/* Handle application byte sequence by callback invocation.
+ */
+static void _mty_appcb (MULTTY_INFLOW *flow) {
+	MULTTY_INSTREAM *mis = _mty_instream (flow);
+	//
+	// Only continue when the (named) flow exists
+	if (mis == NULL) {
+		return;
 	}
 	//
-	// Use the current MULTTY stream
-	MULTTY *mty = flow->current_stream;
-	if (mty == NULL) {
-		//TODO// Can this ever happen?
+	// Only continue when a callback is registered
+	if (mis->cb_ready == NULL) {
 		return;
 	}
 	//
 	// Invoke the callback (trust it to unescape data)
-	if (mty->cb_ready == NULL) {
-		return;
-	}
-	mty->cb_ready (mty, mty->cb_userdata, name, nmlen, ctl);
+	char ctl = flow->buf [flow->postnm];
+	mis->cb_ready (flow, mis->cb_userdata, ctl);
 }
 
 
@@ -274,7 +381,7 @@ static void _mty_appcb (inflow_t *flow) {
  *
  * Return if suitable control codes were found.
  */
-static bool _myt_streamctl (inflow_t *flow) {
+static bool _mty_streamctl (MULTTY_INFLOW *flow) {
 	//
 	// Fetch the control character
 	if (flow->rdend >= flow->wrofs) {
@@ -284,8 +391,17 @@ static bool _myt_streamctl (inflow_t *flow) {
 	//
 	// Handle <SI> or <SO> codes, with or without <SOH> name
 	if ((ctl == c_SO) || (ctl == c_SI)) {
-		flow->rdend++;
-		TODO_FIND_OR_CREATE_AND_SET_AS_DEFAULT;
+		MULTTY_INSTREAM *newcur = _mty_instream (flow);
+		if (newcur->shiftctl == ctl) {
+			//
+			// The shift matches current status, so discard it
+			flow->rdend++;
+		} else {
+			//
+			// Include <SI> or <SO> in the application string
+			// and for now, take note of its new value
+			newcur->shiftctl = ctl;
+		}
 		return true;
 	}
 	//
@@ -294,10 +410,22 @@ static bool _myt_streamctl (inflow_t *flow) {
 		return false;
 	}
 	//
-	// Handle the <EM> code, with or without <SOH> name
+	// Handle the <EM> stream control, with or without <SOH> report
 	if (ctl == c_EM) {
 		flow->rdend++;
-		TODO_TERMINATE_STREAM_AND_FOR_NOW_IGNORE_ERROR_CODE;
+		// LL_DELETE (flow->input_streams, flow->current_stream);
+		MULTTY_INSTREAM **herep = &flow->default_stream.next;
+		while (*herep != NULL) {
+			if (flow->current_stream == *herep) {
+				*herep = flow->current_stream->next;
+				break;
+			}
+			herep = &(*herep)->next;
+		}
+		//
+		// Remove and forget the current stream
+		free (flow->current_stream);
+		flow->current_stream = NULL;
 		return true;
 	}
 	//
@@ -313,7 +441,7 @@ static bool _myt_streamctl (inflow_t *flow) {
  *
  * Return if suitable control codes were found.
  */
-static bool _myt_multiplexctl (inflow_t *flow) {
+static bool _mty_multiplexctl (MULTTY_INFLOW *flow) {
 	//
 	// Fetch the control character
 	if (flow->rdend >= flow->wrofs) {
@@ -361,24 +489,57 @@ static bool _myt_multiplexctl (inflow_t *flow) {
 #endif
 
 
-/* Register a callback function with a MULTTY handle,
- * possibly replacing the previous setting.  The new
- * setting may be NULL to forget the callback.
+/* Register a callback function with arbitrary userdata
+ * pointer, to be invoked when data arrives for the
+ * named stream at the given inflow.
  *
- * Along with the callback function, a userdata pointer
- * may be registered and this will be provided alongside
- * the callback.
+ * The inflow may be NULL to reference the MULTTY_STDIN
+ * default.
+ *
+ * The stream name may be NULL to indicate the default
+ * stream, which may be compared to stdin/stdout.  The
+ * name is assumed to be a static string.
+ *
+ * The callback function may be NULL to indicate that
+ * the previously registered function is to stop being
+ * called.  This may involve the cleanup of the stream
+ * from the inflow (when it is not the default), though
+ * that may also be deferred until inflow cleanup.
+ *
+ * The userdata is passed whenever the callback function
+ * is invoked; this also happens when it is NULL.
+ *
+ * Return true on success, else false/errno
  */
-void mtyregister_ready (MULTTY *mty, mtycb_ready *rdy, void *userdata) {
-	mty->cb_ready = rdy;
-	mty->cb_userdata = userdata;
+bool mtyregister_ready (MULTTY_INFLOW *flow, char *stream,
+			mtycb_ready *rdy, void *userdata) {
+	MULTTY_INSTREAM *instream = _mty_instream_byname (flow, stream, -1);
+	if (instream == NULL) {
+		if (errno == ENOENT) {
+			instream = malloc (sizeof (MULTTY_INSTREAM));
+			if (instream == NULL) {
+				errno = ENOMEM;
+			}
+		}
+		if (instream == NULL) {
+			return false;
+		}
+		memset (instream, 0, sizeof (MULTTY_INSTREAM));
+		instream->next = flow->default_stream.next;
+		instream->name = stream;
+		instream->shiftctl = c_SO;
+		flow->current_stream =
+		flow->default_stream.next = instream;
+	}
+	instream->cb_ready = rdy;
+	instream->cb_userdata = userdata;
 }
 
 
 /* Dispatch an input read event by appending to the buffer and
  * distributing as much as possible over programs.
  */
-void multty_vin_dispatch (inflow_t *flow) {
+void multty_vin_dispatch (MULTTY_INFLOW *flow) {
 	//
 	// Try to read more.  May silently fail if non-blocking.
 	if (!_mty_readmore (flow)) {
@@ -395,26 +556,26 @@ again:
 	//  - application byte string
 	//  - stream operations
 	//  - program multiplexing
-	if (_myt_streamctl (flow)) {
+	if (_mty_streamctl (flow)) {
 		//
 		// We processed a stream control code
 		;
 #ifdef MULTTY_MIXED
-	} else if (_myt_multiplexctl (flow)) {
+	} else if (_mty_multiplexctl (flow)) {
 		//
 		// We processed a program multiplex control code
 		// (Only when compiled with multiplexing support)
 		;
 #endif
-	} else if (_myt_appstring (flow)) {
+	} else if (_mty_appstring (flow)) {
 		//
 		// We recognised an applicating byte string to process
 		_mty_appcb (flow);
 	} else {
 		//
 		// Not recognised, complain and skip codes
-		TODO_CONSIDER_CUTTING_CODES_AND_LOOPING_TO_RETRY;
-		return;
+		int badlen = _mty_badchar (flow, flow->rdend);
+		_mty_cutback (flow, flow->rdend, badlen);
 	}
 	//
 	// We processed a command; cleanup and try another.
