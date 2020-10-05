@@ -204,6 +204,14 @@ int main (int argc, char *argv []) {
 	// Wait for the child to finish, then wrapup
 	int status;
 	waitpid (child, &status, 0);
+	if (stream_out != MULTTY_STDOUT) {
+		mtyclose (stream_out);
+		stream_out = NULL;
+	}
+	if (stream_err != MULTTY_STDERR) {
+		mtyclose (stream_err);
+		stream_err = NULL;
+	}
 	exit (ok ? 0 : 1);
 }
 

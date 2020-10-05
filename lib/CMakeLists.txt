@@ -11,6 +11,7 @@ endif()
 library_pair (multty
 	OUTPUT_NAME multty
 	SOURCES
+		open.c
 		close.c
 		unescape.c
 		escape.c

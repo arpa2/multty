@@ -194,6 +194,18 @@ extern struct multty_progset MULTTY_PROGRAMSET_DEFAULT;
 bool mtyp_mkid (const char *id, bool with_descr, MULTTY_PROGID prgid);
 
 
+/* Open a MULTTY handle, and redirect it to stdout.
+ *
+ * Drop-in replacement for fopen() with FILE changed to MULTTY
+ * and the path replaced by a stream name.  The stream shift is
+ * inserted in the beginning and any buffer fills start after
+ * that point, at the .shift offset.
+ *
+ * Returns a management structure on success, else NULL+errno.
+ */
+MULTTY *mtyopen (const char *streamname, const char *mode);
+
+
 /* Close the MULTTY handle, after flushing any remaining
  * buffer contents.
  *

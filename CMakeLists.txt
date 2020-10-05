@@ -69,7 +69,7 @@ enable_testing ()
 find_package (com_err            REQUIRED)
 find_package (RAGEL              REQUIRED)
 
-include_directories ($CMAKE_CURRENT_SOURCE_DIR}/include)
+include_directories (${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 add_subdirectory (lib)
 add_subdirectory (src)
