@@ -15,3 +15,5 @@ X consider mulTTY as a SASL service?  No, Quick SASL has a better API
 - Multiplexer could hang peer under local; nest separately per peer
 - Telnet options get WON'T and DON'T; mulTTY connector escapes 0xff
 - RFC 856, Telnet option 0 for TRANSMIT-BINARY; still escape 0xff
++ Introduce Ragel to parse more complex grammars
++ CMake configuration/setup scripting
