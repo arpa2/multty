@@ -1,38 +1,41 @@
-# Colour Picking in preTTY
+# Colour Picking for preTTY
 
-> *Picking colours well is surprisingly difficult!*
+> *How to generate a list of colours for the display of multiplexers?*
 
-The ANSI colour table contains a cube of 6x6x6 colours, that is 6 grades of red, green and blue.
-The numbers are 16 + 36xR + 6xG + b.  This is a workable space in which to search for colours.
+We use colours to depict programs and distinguish streams with markup;
+normally we show `stdout` in a normal tone and `stderr` brighter, unless
+lines contain the word `DEBUG` in which case they are dimmed.  We
+use reverse video for headers.  Markdown rendering makes its separate
+pick from the primitives, and in general the markup style may get
+mixed.  Ideally, colours are not.
 
-We will choose the following setup:
+Here are the counters, fastest one first:
 
-  * Colour depicts a program.  We choose a brigt colour for things like `stderr` and one step
-    dimmed for `stdout`.  The distance between these is usually visible, although a bit more
-    difficult in blue than in red and green.  We will first iterate red and green for that
-    reason.
+**Dimensions 1-6** select BGR dimensions by the bit positions, so the
+active dimensions willl be R, G, RG, RB, GB.  Note that backgrounds are
+often black or white, or another mixture of three dimensions.  These
+bits select which dimensions can be non-zero, others are zero so it
+ought to stick out everywhere.
 
-  * Colour handling for streams.  Bold for `stderr` and one step dimmed for `stdout`, plus
-    headers with inverse video and for other streams we shall pick underline and inverse
-    video as needed.  By default, we only show `stderr` and `stdout` though.
+**Levels 0-3** for choosing normal levels 5, 3, 4, 2.
 
-  * Colours `(r,g,b)` are distanced as far as possible from the background colour `(r0,g0,b0)`,
-    which can be set in environment variable `PRETTY_BGCOLOUR` as an `RRGGBB` hex number.
-    When not set, black or `000000` will be assumed.  Distances will be relative to (the cube
-    point nearest to) this number.  Distances are
-    `sqrt ( (r-r0)^2 + (g-g0)^2 + (b-b0)^2 )`
-    although nobody is ever looking for the square and so we compare the sum of squares.
+**Sublevels 0-0 or 0-4** for unicolour dimensions 1-3 or bicolour
+dimensions 4-6.  Sublevel 0 is the same value as the level, and if
+sublevels 1-4 are present they select from the other values in the
+order in which they occur as levels.
 
-  * The algorithm starts with the largest sphere of radius `sqrt (5^2 + 5^2 + 5^2)` and gradually
-    reduces its size to produce the colours that fall outside it.  This approach does not take
-    into account that colours should be far apart, but this is still what it does in practice.
+This leaves a total of 3x5x1 + 3x5x5 = 90 colours with a reasonably spread
+over the picking range of the ANSI 6x6x6 cube.
 
-  * There is no builtin support for colour blindness, yet, but it may be possible to combine the
-    red and green axes, and effectively drop the radius of a circle instead of a sphere.
+On a white background, it seems prudent to invert the selected colour but
+that would not work for all colours and may confusing remote discussions.
+It is probably better to shift the range a little from 2-5 onto 1-4.
 
-  * The resulting mechanism is as predictable as the order in which programs start sending data.
-    Future versions of the program may choose to allow manual colour overrides.
+The colours would be recycled when they are all gone.
 
-  * There is a colour testing routine that may be used to see if colours are difficult for a
-    colour blind person, or if a colour was manually selected.  If not, it can return `false`
-    and the colour picking algorithm continues.
+Rather than picking numbers in a given order, it would also be possible
+to use a random number to scatter the range.  In general, this should
+be seen as a series of colours to pick from.
+
+The range can simply be generated, rather than computed.
+
